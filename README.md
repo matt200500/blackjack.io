@@ -1,6 +1,6 @@
 # SENG513 Poker
 
-## Sample Commit 3
+## Sample Commit 4
 
 ## Getting started
 
