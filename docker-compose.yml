@@ -1,4 +1,3 @@
-version: '3'
 services:
   backend:
     build: ./backend
@@ -21,4 +20,12 @@ services:
     env_file:
       - ./frontend/.env
     command: npm run dev
+
+  database:
+      build: ./database
+      env_file:
+        - ./database/.env
+      ports:
+        - "3306:3306"
+
 
