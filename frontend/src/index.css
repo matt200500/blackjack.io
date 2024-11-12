@@ -2,71 +2,128 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
+html,
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
+  /* width: 100%; */
+  height: 100%;
+  margin: 0px;
+  padding: 0px;
+  overflow-x: hidden;
+  font-size: 90%;
   background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+:root {
+  font-optical-sizing: auto;
+  margin: 0;
+  padding: 0;
+  color: white;
+}
+
+/* Modern Input Styles */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select {
+  padding: 0.5rem 1.2rem;
+  background-color: #2b2b2b; /* Dark background for input */
+  color: #f0f0f0; /* Light text */
+  border: 2px solid transparent; /* Borderless by default */
+  border-radius: 6px; /* Rounded corners */
+  font-size: 16px; /* Modern font size */
+  outline: none;
+  transition: border 0.3s ease, background-color 0.3s ease; /* Smooth transitions */
+}
+
+/* Focused State */
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+select:focus {
+  background-color: #1e1e1e; /* Darker background on focus */
+  border-color: #3b82f6; /* Blue border on focus */
+}
+
+/* Input Placeholder */
+input::placeholder {
+  color: #888; /* Light gray placeholder text */
+  opacity: 0.8; /* Slightly transparent */
+}
+
+/* Hover State */
+input:hover,
+select:hover {
+  background-color: #333; /* Slightly lighter background on hover */
+}
+
+/* Disabled State */
+input:disabled {
+  background-color: #444; /* Dark background for disabled inputs */
+  color: #888; /* Muted text color */
+  cursor: not-allowed; /* Show that the input is not interactive */
+}
+
+/* Button Styling */
+button {
+  background-color: #3b82f6; /* Blue background */
+  color: white; /* White text */
+  padding: 0rem 1rem;
+  border: none; /* Remove borders */
+  border-radius: 6px; /* Rounded corners */
+  cursor: pointer; /* Pointer on hover */
+  font-size: 16px; /* Modern font size */
+  transition: background-color 0.3s ease; /* Smooth transition */
+}
+
+button:hover {
+  background-color: #2563eb; /* Darker blue on hover */
+}
+
+button:active {
+  background-color: #1d4ed8; /* Even darker blue when clicked */
+}
+
+button:disabled {
+  background-color: #555; /* Gray background for disabled buttons */
+  cursor: not-allowed; /* No pointer on disabled button */
+}
+
+/* Custom select styling */
+select {
+  appearance: none; /* Removes the default arrow */
+  -webkit-appearance: none; /* For Safari and iOS */
+  -moz-appearance: none; /* For Firefox */
+
+  background-color: #2b2b2b; /* Dark background */
+  color: #f0f0f0; /* Light text */
+  padding: 12px 16px; /* Comfortable padding */
+  border: 2px solid transparent; /* Borderless default */
+  border-radius: 6px; /* Rounded corners */
+  font-size: 16px; /* Font size */
+  cursor: pointer; /* Change cursor to pointer */
+  width: 100%; /* Full width */
+  transition: border 0.3s ease, background-color 0.3s ease; /* Smooth transitions */
+  background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path fill="none" stroke="%23f0f0f0" stroke-width="2" d="M1 1l4 4 4-4"/></svg>'); /* Custom arrow */
+  background-repeat: no-repeat;
+  background-position: right 16px center; /* Position the arrow */
+  background-size: 12px;
+}
+
+/* Focus state */
+select:focus {
+  background-color: #1e1e1e; /* Darker background */
+  border-color: #3b82f6; /* Blue border on focus */
+  outline: none; /* Remove default outline */
+}
+
+/* Hover state */
+select:hover {
+  background-color: #333; /* Lighter background on hover */
+}
+
+/* Disabled state */
+select:disabled {
+  background-color: #444; /* Gray background for disabled state */
+  color: #888; /* Muted text */
+  cursor: not-allowed; /* Show not-allowed cursor */
 }
