@@ -1,14 +1,24 @@
 FROM node:18
 WORKDIR /app
 
-# We use the * since we will have package.json and package-lock.json
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy package files
 COPY package*.json ./
+
+# Install dependencies
 RUN npm install
 
-# Copy the rest of the app
+# Copy the rest of the application
 COPY . .
 
-EXPOSE 5000
+# Make sure to expose port 3001
+EXPOSE 3001
 
-# Start the server with nodemon
+# Update the command to use port 3001
 CMD ["npx", "nodemon", "server.js"]
