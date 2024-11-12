@@ -4,23 +4,23 @@ CREATE TABLE users (
     username VARCHAR(50) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     wins INT(255) NOT NULL,
-    gamesPlayed INT(255) NOT NULL,
-    profilePicture VARCHAR(255)
+    games_played INT(255) NOT NULL,
+    profile_picture VARCHAR(255)
 );
 
 -- Crate lobby table
 CREATE TABLE lobby (
     lobby_id INT AUTO_INCREMENT PRIMARY KEY,
-    lobbyName VARCHAR(255) NOT NULL,
-    LobbyPassword VARCHAR(255) NOT NULL,
-    ExpertiseLevel VARCHAR(255) NOT NULL,
-    IsOpen BOOLEAN NOT NULL DEFAULT TRUE,
-    LobbyOwner INT,
+    lobby_name VARCHAR(255) NOT NULL,
+    lobby_password VARCHAR(255) NOT NULL,
+    expertise_level VARCHAR(255) NOT NULL,
+    is_open BOOLEAN NOT NULL DEFAULT TRUE,
+    lobby_owner INT,
     user_ids JSON,
     pot INT(255) DEFAULT 0,
     big_blind INT(255),
     small_blind INT(255),
-    FOREIGN KEY (LobbyOwner) REFERENCES users(user_id) ON DELETE SET NULL
+    FOREIGN KEY (lobby_owner) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
 -- Create game table
@@ -36,4 +36,4 @@ CREATE TABLE game (
 );
 
 
-INSERT INTO users (username, password, wins, gamesPlayed) VALUES ('joe', 'password', '0', '0');
+INSERT INTO users (username, password, wins, games_played) VALUES ('joe', 'password', '0', '0');
