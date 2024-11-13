@@ -28,6 +28,7 @@ const Home = ({ user }) => {
       const response = await axiosInstance.get(
         `/lobbies?sortBy=${sortBy}&order=${sortOrder}&includePasswordProtected=${includePasswordProtected}`
       );
+      console.log("Lobbies:", response.data);
       setLobbies(response.data);
     } catch (error) {
       console.error("Failed to fetch lobbies:", error);

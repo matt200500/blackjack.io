@@ -33,12 +33,18 @@ const Lobby = ({ user }) => {
     if (lobby) {
       console.log("Lobby:", lobby);
       console.log("Current user:", user);
-      console.log("Is current user the host?", lobby.host._id === user._id);
+      console.log("Is current user the host?", lobby.host.id === user.id);
     }
   }, [lobby, user]);
 
   useEffect(() => {
     socketRef.current = io("http://localhost:3001");
+
+    socketRef.current.on("request players update", (data) => {
+      if (data.lobbyId === id) {
+        fetchLobby();
+      }
+    });
 
     socketRef.current.on("host left lobby", (data) => {
       if (data.lobbyId === id) {
@@ -64,7 +70,7 @@ const Lobby = ({ user }) => {
       } else if (data.lobbyId === id) {
         // Update the players list for other users in the lobby
         setPlayers((prevPlayers) =>
-          prevPlayers.filter((player) => player._id !== data.userId)
+          prevPlayers.filter((player) => player.id !== data.userId)
         );
       }
     });
@@ -72,6 +78,7 @@ const Lobby = ({ user }) => {
     socketRef.current.emit("join lobby", id);
 
     return () => {
+      socketRef.current.off("request players update");
       socketRef.current.off("host left lobby");
       socketRef.current.off("player joined");
       socketRef.current.off("player left");
@@ -79,7 +86,7 @@ const Lobby = ({ user }) => {
       socketRef.current.emit("leave lobby", id);
       socketRef.current.disconnect();
     };
-  }, [id, navigate, user._id]);
+  }, [id, navigate, user.id, fetchLobby]);
 
   const leaveLobby = async () => {
     try {
@@ -99,7 +106,7 @@ const Lobby = ({ user }) => {
     try {
       await axiosInstance.post(`/lobbies/${id}/remove-player`, { playerId });
       // Update the local state to reflect the change
-      setPlayers(players.filter((player) => player._id !== playerId));
+      setPlayers(players.filter((player) => player.id !== playerId));
     } catch (error) {
       console.error(
         "Failed to remove player:",
@@ -109,6 +116,8 @@ const Lobby = ({ user }) => {
       setTimeout(() => setError(""), 3000);
     }
   };
+
+  console.log("Players:", players);
 
   if (!lobby) {
     return <div>Loading...</div>;
@@ -133,16 +142,16 @@ const Lobby = ({ user }) => {
         <h2 className="text-xl font-bold mb-2">Other Players:</h2>
         <ul>
           {players
-            .filter((player) => player._id !== user._id)
+            .filter((player) => player.id !== user.id)
             .map((player) => (
               <li
-                key={player._id}
+                key={player.id}
                 className="flex items-center justify-between mb-2"
               >
                 <span>{player.username}</span>
                 {(user.role === "host" || user.role === "admin") && (
                   <button
-                    onClick={() => removePlayer(player._id)}
+                    onClick={() => removePlayer(player.id)}
                     className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 transition-colors duration-200"
                   >
                     Remove

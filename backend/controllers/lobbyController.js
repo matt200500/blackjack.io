@@ -66,72 +66,74 @@ const createLobby = async (req, res) => {
 };
 
 const getLobbies = async (req, res) => {
+  const {
+    sortBy = "lobby_id",
+    order = "desc",
+    includePasswordProtected = "all",
+  } = req.query;
+
   try {
-    const {
-      sortBy = "lobby_id",
-      order = "desc",
-      includePasswordProtected = "all",
-    } = req.query;
+    const connection = await pool.getConnection();
 
-    // Map frontend field names to database column names
-    const fieldMapping = {
-      name: "lobby_name",
-      expertiseLevel: "expertise_level",
-      "host.username": "username",
-    };
+    // Build the base query with JSON_LENGTH instead of JSON_ARRAY_LENGTH
+    let query = `
+      SELECT 
+        l.lobby_id as id,
+        l.lobby_name as name,
+        l.expertise_level as expertiseLevel,
+        CASE WHEN l.lobby_password IS NOT NULL AND l.lobby_password != '' THEN 1 ELSE 0 END as hasPassword,
+        JSON_LENGTH(COALESCE(l.user_ids, '[]')) as playerCount,
+        u.username as hostUsername,
+        u.user_id as hostId
+      FROM lobby l
+      LEFT JOIN users u ON l.lobby_owner = u.user_id
+      WHERE l.is_open = 1
+    `;
 
-    const dbField = fieldMapping[sortBy] || sortBy;
-
-    let passwordCondition = "";
+    // Add password protection filter
     if (includePasswordProtected === "yes") {
-      passwordCondition = "AND l.lobby_password IS NOT NULL";
+      query += ` AND l.lobby_password IS NOT NULL AND l.lobby_password != ''`;
     } else if (includePasswordProtected === "no") {
-      passwordCondition = "AND l.lobby_password IS NULL";
+      query += ` AND (l.lobby_password IS NULL OR l.lobby_password = '')`;
     }
 
-    const [lobbies] = await pool.execute(`
-      SELECT l.*, u.username as host_username
-      FROM lobby l
-      JOIN users u ON l.lobby_owner = u.user_id
-      WHERE l.is_open = true ${passwordCondition}
-      ORDER BY ${dbField} ${order.toUpperCase()}
-    `);
+    // Add sorting
+    const validSortFields = [
+      "lobby_id",
+      "lobby_name",
+      "expertise_level",
+      "username",
+    ];
+    const sanitizedSortBy = validSortFields.includes(sortBy)
+      ? sortBy
+      : "lobby_id";
+    const sanitizedOrder = order.toUpperCase() === "ASC" ? "ASC" : "DESC";
 
-    // Get all players for all lobbies
-    const formattedLobbies = await Promise.all(
-      lobbies.map(async (lobby) => {
-        const playerIds = JSON.parse(lobby.user_ids);
-        const [players] = await pool.execute(
-          `
-        SELECT user_id, username
-        FROM users
-        WHERE user_id IN (?)
-      `,
-          [playerIds]
-        );
+    query += ` ORDER BY ${sanitizedSortBy} ${sanitizedOrder}`;
 
-        return {
-          id: lobby.lobby_id,
-          name: lobby.lobby_name,
-          host: {
-            id: lobby.lobby_owner,
-            username: lobby.host_username,
-          },
-          expertiseLevel: lobby.expertise_level,
-          hasPassword: Boolean(lobby.lobby_password),
-          players: players.map((player) => ({
-            id: player.user_id,
-            username: player.username,
-          })),
-        };
-      })
-    );
+    const [lobbies] = await connection.execute(query);
+    connection.release();
+
+    // Transform the results
+    const formattedLobbies = lobbies.map((lobby) => ({
+      id: lobby.id,
+      name: lobby.name,
+      expertiseLevel: lobby.expertiseLevel,
+      hasPassword: Boolean(lobby.hasPassword),
+      playerCount: lobby.playerCount,
+      host: {
+        id: lobby.hostId,
+        username: lobby.hostUsername,
+      },
+    }));
 
     res.json(formattedLobbies);
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Failed to retrieve lobbies", error: error.message });
+    console.error("Error in getLobbies:", error);
+    res.status(500).json({
+      message: "Failed to retrieve lobbies",
+      error: error.message,
+    });
   }
 };
 
@@ -205,12 +207,14 @@ const joinLobby = async (req, res) => {
       await connection.commit();
       connection.release();
 
-      io.to(lobbyId).emit("player joined", {
-        players: players.map((player) => ({
-          id: player.user_id,
-          username: player.username,
-        })),
-      });
+      setTimeout(() => {
+        io.to(lobbyId).emit("player joined", {
+          players: players.map((player) => ({
+            id: player.user_id,
+            username: player.username,
+          })),
+        });
+      }, 500);
 
       res.json({
         message: "Joined lobby successfully",
@@ -325,8 +329,20 @@ const leaveLobby = async (req, res) => {
       }
 
       // Otherwise, remove user from user_ids
-      const userIds = JSON.parse(lobby.user_ids);
-      const updatedUserIds = userIds.filter((id) => id !== userId);
+      let userIds;
+      try {
+        userIds = JSON.parse(lobby.user_ids);
+        if (!Array.isArray(userIds)) {
+          userIds = [];
+        }
+      } catch (error) {
+        console.error("Error parsing user_ids:", error);
+        userIds = [];
+      }
+
+      const updatedUserIds = userIds.filter(
+        (id) => Number(id) !== Number(userId)
+      );
 
       await connection.execute(
         "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
@@ -340,7 +356,7 @@ const leaveLobby = async (req, res) => {
         FROM users
         WHERE user_id IN (?)
       `,
-        [updatedUserIds]
+        [updatedUserIds.length > 0 ? updatedUserIds : [0]]
       );
 
       await connection.commit();

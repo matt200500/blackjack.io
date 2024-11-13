@@ -40,7 +40,7 @@ const registerUser = async (req, res) => {
 
       // Insert new user
       const [result] = await connection.execute(
-        "INSERT INTO users (username, email, password, role, wins, games_played, profile_picture) VALUES (?, ?, ?, ?, 0, 0, 'default')",
+        "INSERT INTO users (username, email, password, role, wins, losses, games_played, profile_picture) VALUES (?, ?, ?, ?, 0, 0, 0, 'default')",
         [username, email, hashedPassword, role || "user"]
       );
 

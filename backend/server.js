@@ -45,6 +45,9 @@ io.on("connection", (socket) => {
   socket.on("join lobby", (lobbyId) => {
     socket.join(lobbyId);
     console.log(`User joined lobby: ${lobbyId}`);
+
+    // Emit an event to request current players list
+    io.to(lobbyId).emit("request players update", { lobbyId });
   });
 
   socket.on("leave lobby", (lobbyId) => {
