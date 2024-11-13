@@ -10,7 +10,7 @@ const createLobby = async (req, res) => {
     await connection.beginTransaction();
 
     try {
-      // Create lobby
+      // Create lobby with properly formatted JSON array of user IDs
       const [result] = await connection.execute(
         "INSERT INTO lobby (lobby_name, lobby_password, expertise_level, lobby_owner, user_ids) VALUES (?, ?, ?, ?, ?)",
         [
@@ -18,12 +18,12 @@ const createLobby = async (req, res) => {
           password ? await bcrypt.hash(password, 10) : null,
           expertiseLevel,
           hostId,
-          JSON.stringify([hostId]), // Initialize with host as first player
+          JSON.stringify([hostId]), // Ensure it's a properly formatted JSON array
         ]
       );
 
       // Get the created lobby with player information
-      const [lobby] = await connection.execute(
+      const [lobbies] = await connection.execute(
         `
         SELECT l.*, u.username as host_username
         FROM lobby l
@@ -33,19 +33,7 @@ const createLobby = async (req, res) => {
         [result.insertId]
       );
 
-      // Get player information
-      const playerIds = JSON.parse(lobby.user_ids);
-      const [players] = await connection.execute(
-        `
-        SELECT user_id, username
-        FROM users
-        WHERE user_id IN (?)
-      `,
-        [playerIds]
-      );
-
-      await connection.commit();
-      connection.release();
+      const lobby = lobbies[0];
 
       // Format the response
       const formattedLobby = {
@@ -56,11 +44,12 @@ const createLobby = async (req, res) => {
           username: lobby.host_username,
         },
         expertiseLevel: lobby.expertise_level,
-        players: players.map((player) => ({
-          id: player.user_id,
-          username: player.username,
-        })),
+        password: lobby.lobby_password ? true : false,
+        createdAt: new Date(),
       };
+
+      await connection.commit();
+      connection.release();
 
       res.status(201).json(formattedLobby);
     } catch (error) {
@@ -84,6 +73,15 @@ const getLobbies = async (req, res) => {
       includePasswordProtected = "all",
     } = req.query;
 
+    // Map frontend field names to database column names
+    const fieldMapping = {
+      name: "lobby_name",
+      expertiseLevel: "expertise_level",
+      "host.username": "username",
+    };
+
+    const dbField = fieldMapping[sortBy] || sortBy;
+
     let passwordCondition = "";
     if (includePasswordProtected === "yes") {
       passwordCondition = "AND l.lobby_password IS NOT NULL";
@@ -96,7 +94,7 @@ const getLobbies = async (req, res) => {
       FROM lobby l
       JOIN users u ON l.lobby_owner = u.user_id
       WHERE l.is_open = true ${passwordCondition}
-      ORDER BY l.${sortBy} ${order.toUpperCase()}
+      ORDER BY ${dbField} ${order.toUpperCase()}
     `);
 
     // Get all players for all lobbies
@@ -120,6 +118,7 @@ const getLobbies = async (req, res) => {
             username: lobby.host_username,
           },
           expertiseLevel: lobby.expertise_level,
+          hasPassword: Boolean(lobby.lobby_password),
           players: players.map((player) => ({
             id: player.user_id,
             username: player.username,
@@ -170,12 +169,21 @@ const joinLobby = async (req, res) => {
         if (!isPasswordCorrect) {
           await connection.rollback();
           connection.release();
-          return res.status(401).json({ message: "Incorrect password" });
+          return res.status(403).json({ message: "Incorrect password" });
         }
       }
 
       // Add player to user_ids if not already present
-      const userIds = JSON.parse(lobby.user_ids);
+      let userIds;
+      try {
+        userIds = JSON.parse(lobby.user_ids);
+        if (!Array.isArray(userIds)) {
+          userIds = [];
+        }
+      } catch (error) {
+        userIds = [];
+      }
+
       if (!userIds.includes(userId)) {
         userIds.push(userId);
         await connection.execute(
@@ -218,6 +226,7 @@ const joinLobby = async (req, res) => {
     }
   } catch (error) {
     console.error("Error in joinLobby:", error);
+    console.log(error);
     res
       .status(500)
       .json({ message: "Failed to join lobby", error: error.message });

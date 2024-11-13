@@ -9,8 +9,8 @@ import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
-// import Profile from "./pages/Profile";
-// import Lobby from "./pages/Lobby";
+import Profile from "./pages/Profile";
+import Lobby from "./pages/Lobby";
 import ErrorMessage from "./components/ErrorMessage";
 
 const App = () => {
@@ -46,7 +46,7 @@ const App = () => {
           <Route path="/" element={<Home user={user} />} />
           <Route path="/login" element={<Login setUser={setUser} />} />
           <Route path="/signup" element={<SignUp setUser={setUser} />} />
-          {/* <Route
+          <Route
             path="/profile"
             element={
               user ? (
@@ -55,11 +55,11 @@ const App = () => {
                 <Navigate to="/login" />
               )
             }
-          /> */}
-          {/* <Route
+          />
+          <Route
             path="/lobby/:id"
             element={user ? <Lobby user={user} /> : <Navigate to="/login" />}
-          /> */}
+          />
         </Routes>
       </div>
     </Router>

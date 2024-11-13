@@ -9,14 +9,10 @@ const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use(
   (config) => {
-    // Get the token from localStorage
     const token = localStorage.getItem("token");
-
-    // If a token is found, add it to the Authorization header
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
-
     return config;
   },
   (error) => {
@@ -24,12 +20,11 @@ axiosInstance.interceptors.request.use(
   }
 );
 
-// Add a response interceptor
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // Token expired or invalid
+    if (error.response?.data?.message === "Not authorized, token failed") {
+      // Only clear token if it's specifically a token failure
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.dispatchEvent(new Event("tokenExpired"));

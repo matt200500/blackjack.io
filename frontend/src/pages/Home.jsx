@@ -43,7 +43,8 @@ const Home = ({ user }) => {
           password: lobbyPassword,
           expertiseLevel,
         });
-        navigate(`/lobby/${response.data._id}`);
+        console.log(response);
+        navigate(`/lobby/${response.data.id}`);
       } catch (error) {
         console.error(
           "Failed to create lobby:",
@@ -54,32 +55,37 @@ const Home = ({ user }) => {
   };
 
   const handleJoinLobby = async (lobbyId, hasPassword) => {
-    if (hasPassword) {
+    console.log("Joining lobby:", lobbyId, "Has password:", hasPassword);
+    if (hasPassword === true) {
       setSelectedLobbyId(lobbyId);
       setIsPasswordModalOpen(true);
     } else {
-      joinLobbyWithPassword(lobbyId, "");
+      await joinLobbyWithPassword(lobbyId, "");
     }
   };
 
   const joinLobbyWithPassword = async (lobbyId, password) => {
     try {
-      await axiosInstance.post(`/lobbies/join/${lobbyId}`, { password });
-      navigate(`/lobby/${lobbyId}`);
+      const response = await axiosInstance.post(`/lobbies/join/${lobbyId}`, {
+        password,
+      });
+      if (response.data) {
+        navigate(`/lobby/${lobbyId}`);
+      }
     } catch (error) {
       console.error(
         "Failed to join lobby:",
         error.response?.data?.message || error.message
       );
       setError(error.response?.data?.message || "Failed to join lobby");
-      setTimeout(() => setError(""), 3000); // Clear error after 3 seconds
+      setTimeout(() => setError(""), 3000);
     }
   };
 
-  const handlePasswordSubmit = (password) => {
+  const handlePasswordSubmit = async (password) => {
     setIsPasswordModalOpen(false);
     if (selectedLobbyId) {
-      joinLobbyWithPassword(selectedLobbyId, password);
+      await joinLobbyWithPassword(selectedLobbyId, password);
     }
   };
 
@@ -101,25 +107,28 @@ const Home = ({ user }) => {
       {error && <ErrorMessage message={error} />}
       <h1 className="text-2xl font-bold mb-4">Welcome to Online Poker</h1>
       {(user?.role === "host" || user?.role === "admin") && (
-        <form onSubmit={handleCreateLobby} className="mb-4 flex">
+        <form
+          onSubmit={handleCreateLobby}
+          className="mb-4 flex flex-col md:flex-row gap-2"
+        >
           <input
             type="text"
             value={lobbyName}
             onChange={(e) => setLobbyName(e.target.value)}
             placeholder="Enter Lobby Name"
-            className="mr-2 p-2 rounded"
+            className="p-2 rounded w-full md:w-auto"
           />
           <input
             type="password"
             value={lobbyPassword}
             onChange={(e) => setLobbyPassword(e.target.value)}
             placeholder="Optional Password"
-            className="mr-2 p-2 rounded"
+            className="p-2 rounded w-full md:w-auto"
           />
           <select
             value={expertiseLevel}
             onChange={(e) => setExpertiseLevel(e.target.value)}
-            className="mr-2 p-2 rounded"
+            className="p-2 rounded w-full md:w-auto"
           >
             <option value="beginner">Beginner</option>
             <option value="intermediate">Intermediate</option>
@@ -127,7 +136,7 @@ const Home = ({ user }) => {
           </select>
           <button
             type="submit"
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 w-full md:w-auto"
           >
             Create
           </button>
@@ -174,32 +183,24 @@ const Home = ({ user }) => {
                   {sortBy === "expertiseLevel" &&
                     (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                <th
-                  className="p-2 cursor-pointer"
-                  onClick={() => handleSort("createdAt")}
-                >
-                  Created{" "}
-                  {sortBy === "createdAt" && (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
+
                 <th className="p-2"></th>
               </tr>
             </thead>
             <tbody>
               {lobbies.map((lobby) => (
-                <tr key={lobby._id} className="bg-gray-700">
+                <tr key={lobby.id} className="bg-gray-700">
                   <td className="p-2">
                     {lobby.name} {lobby.password ? "🔒" : ""}
                   </td>
                   <td className="p-2">{lobby.host.username}</td>
                   <td className="p-2">{lobby.expertiseLevel}</td>
-                  <td className="p-2">
-                    {new Date(lobby.createdAt).toLocaleString()}
-                  </td>
+
                   <td className="p-2 text-right">
                     {user ? (
                       <button
                         onClick={() =>
-                          handleJoinLobby(lobby._id, !!lobby.password)
+                          handleJoinLobby(lobby.id, Boolean(lobby.hasPassword))
                         }
                         className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors duration-200"
                       >
@@ -223,7 +224,10 @@ const Home = ({ user }) => {
       </div>
       <PasswordModal
         isOpen={isPasswordModalOpen}
-        onClose={() => setIsPasswordModalOpen(false)}
+        onClose={() => {
+          setIsPasswordModalOpen(false);
+          setSelectedLobbyId(null);
+        }}
         onSubmit={handlePasswordSubmit}
       />
     </div>

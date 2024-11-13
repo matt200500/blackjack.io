@@ -40,13 +40,13 @@ const registerUser = async (req, res) => {
 
       // Insert new user
       const [result] = await connection.execute(
-        "INSERT INTO users (username, email, password, role, wins, games_played) VALUES (?, ?, ?, ?, 0, 0)",
+        "INSERT INTO users (username, email, password, role, wins, games_played, profile_picture) VALUES (?, ?, ?, ?, 0, 0, 'default')",
         [username, email, hashedPassword, role || "user"]
       );
 
       // Get the created user
       const [users] = await connection.execute(
-        "SELECT user_id, username, email, role, wins, games_played, profile_picture FROM users WHERE user_id = ?",
+        "SELECT user_id, username, email, role, wins, losses, games_played, profile_picture FROM users WHERE user_id = ?",
         [result.insertId]
       );
 
@@ -68,6 +68,7 @@ const registerUser = async (req, res) => {
           email: user.email,
           role: user.role,
           wins: user.wins,
+          losses: user.losses,
           gamesPlayed: user.games_played,
           profilePicture: user.profile_picture,
         },
@@ -79,6 +80,7 @@ const registerUser = async (req, res) => {
       throw error;
     }
   } catch (error) {
+    console.log(error);
     res
       .status(500)
       .json({ message: "Failed to create user", error: error.message });
@@ -124,12 +126,14 @@ const loginUser = async (req, res) => {
         email: user.email,
         role: user.role,
         wins: user.wins,
+        losses: user.losses,
         gamesPlayed: user.games_played,
         profilePicture: user.profile_picture,
       },
       token,
     });
   } catch (error) {
+    console.log(error);
     res.status(500).json({ message: "Login failed", error: error.message });
   }
 };
@@ -172,7 +176,7 @@ const updateProfilePicture = async (req, res) => {
     }
 
     const [users] = await pool.execute(
-      "SELECT user_id, username, email, role, wins, games_played, profile_picture FROM users WHERE user_id = ?",
+      "SELECT user_id, username, email, role, wins, losses, games_played, profile_picture FROM users WHERE user_id = ?",
       [userId]
     );
 
@@ -184,6 +188,7 @@ const updateProfilePicture = async (req, res) => {
         email: users[0].email,
         role: users[0].role,
         wins: users[0].wins,
+        losses: users[0].losses,
         gamesPlayed: users[0].games_played,
         profilePicture: users[0].profile_picture,
       },
@@ -239,7 +244,7 @@ const updateProfile = async (req, res) => {
 
       // Get updated user data
       const [users] = await connection.execute(
-        "SELECT user_id, username, email, role, wins, games_played, profile_picture FROM users WHERE user_id = ?",
+        "SELECT user_id, username, email, role, wins, losses, games_played, profile_picture FROM users WHERE user_id = ?",
         [userId]
       );
 
@@ -259,6 +264,7 @@ const updateProfile = async (req, res) => {
           email: user.email,
           role: user.role,
           wins: user.wins,
+          losses: user.losses,
           gamesPlayed: user.games_played,
           profilePicture: user.profile_picture,
         },
@@ -278,7 +284,7 @@ const updateProfile = async (req, res) => {
 const getAllUsers = async (req, res) => {
   try {
     const [users] = await pool.execute(
-      "SELECT user_id, username, wins, games_played, profile_picture FROM users"
+      "SELECT user_id, username, wins, losses, games_played, profile_picture FROM users"
     );
     res.json(users);
   } catch (error) {

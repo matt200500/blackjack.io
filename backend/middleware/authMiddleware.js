@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/userModel");
+const { pool } = require("../utils/db");
 
 const protect = async (req, res, next) => {
   let token;
@@ -15,8 +15,20 @@ const protect = async (req, res, next) => {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Get user from the token
-      req.user = await User.findById(decoded.id).select("-password");
+      // Get user from the token (using MySQL instead of MongoDB)
+      const [users] = await pool.execute(
+        "SELECT user_id, username, email, role, wins, losses, games_played, profile_picture FROM users WHERE user_id = ?",
+        [decoded.id]
+      );
+
+      if (users.length === 0) {
+        return res
+          .status(401)
+          .json({ message: "Not authorized, user not found" });
+      }
+
+      // Attach user to request object
+      req.user = users[0];
 
       next();
     } catch (error) {
