@@ -426,9 +426,22 @@ const removePlayer = async (req, res) => {
         return res.status(403).json({ message: "You cannot remove yourself" });
       }
 
+      // Parse user_ids safely
+      let userIds;
+      try {
+        userIds = JSON.parse(lobby.user_ids || "[]");
+        if (!Array.isArray(userIds)) {
+          userIds = [];
+        }
+      } catch (error) {
+        console.error("Error parsing user_ids:", error);
+        userIds = [];
+      }
+
       // Remove player from user_ids
-      const userIds = JSON.parse(lobby.user_ids);
-      const updatedUserIds = userIds.filter((id) => id !== parseInt(playerId));
+      const updatedUserIds = userIds.filter(
+        (id) => Number(id) !== Number(playerId)
+      );
 
       await connection.execute(
         "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
@@ -442,7 +455,7 @@ const removePlayer = async (req, res) => {
         FROM users
         WHERE user_id IN (?)
       `,
-        [updatedUserIds]
+        [updatedUserIds.length > 0 ? updatedUserIds : [0]]
       );
 
       await connection.commit();
