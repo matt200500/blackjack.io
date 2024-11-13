@@ -103,125 +103,162 @@ const Home = ({ user }) => {
   };
 
   return (
-    <div className="p-8">
+    <div className="w-full mx-auto p-4 sm:p-6 lg:p-8">
       {error && <ErrorMessage message={error} />}
-      <h1 className="text-2xl font-bold mb-4">Welcome to Online Poker</h1>
+      <h1 className="text-3xl font-bold mb-6 text-gray-100">
+        Welcome to Online Poker
+      </h1>
+
       {(user?.role === "host" || user?.role === "admin") && (
         <form
           onSubmit={handleCreateLobby}
-          className="mb-4 flex flex-col md:flex-row gap-2"
+          className="bg-gray-800 p-6 rounded-lg shadow-lg mb-8"
         >
-          <input
-            type="text"
-            value={lobbyName}
-            onChange={(e) => setLobbyName(e.target.value)}
-            placeholder="Enter Lobby Name"
-            className="p-2 rounded w-full md:w-auto"
-          />
-          <input
-            type="password"
-            value={lobbyPassword}
-            onChange={(e) => setLobbyPassword(e.target.value)}
-            placeholder="Optional Password"
-            className="p-2 rounded w-full md:w-auto"
-          />
-          <select
-            value={expertiseLevel}
-            onChange={(e) => setExpertiseLevel(e.target.value)}
-            className="p-2 rounded w-full md:w-auto"
-          >
-            <option value="beginner">Beginner</option>
-            <option value="intermediate">Intermediate</option>
-            <option value="expert">Expert</option>
-          </select>
-          <button
-            type="submit"
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 w-full md:w-auto"
-          >
-            Create
-          </button>
+          <h2 className="text-xl font-semibold mb-4 text-gray-100">
+            Create New Lobby
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <input
+              type="text"
+              value={lobbyName}
+              onChange={(e) => setLobbyName(e.target.value)}
+              placeholder="Enter Lobby Name"
+              className="p-2 rounded bg-gray-700 text-white placeholder-gray-400 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+            <input
+              type="password"
+              value={lobbyPassword}
+              onChange={(e) => setLobbyPassword(e.target.value)}
+              placeholder="Optional Password"
+              className="p-2 rounded bg-gray-700 text-white placeholder-gray-400 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+            <select
+              value={expertiseLevel}
+              onChange={(e) => setExpertiseLevel(e.target.value)}
+              className="p-2 rounded bg-gray-700 text-white border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="expert">Expert</option>
+            </select>
+            <button
+              type="submit"
+              className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition-colors duration-200 font-semibold"
+            >
+              Create Lobby
+            </button>
+          </div>
         </form>
       )}
-      <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
-        <h2 className="text-xl font-bold mb-4 text-white">Open Lobbies</h2>
-        <div className="mb-4">
+
+      <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-100 w-full">
+            Open Lobbies
+          </h2>
           <select
             value={includePasswordProtected}
             onChange={handleFilterChange}
-            className="bg-gray-700 text-white p-2 rounded w-fit"
+            className="bg-gray-700 text-white p-2 rounded border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           >
             <option value="all">Any Password</option>
             <option value="yes">Password Protected</option>
             <option value="no">Not Password Protected</option>
           </select>
         </div>
+
         {lobbies.length === 0 ? (
-          <p className="text-gray-400">No open lobbies available.</p>
+          <div className="text-center py-12">
+            <p className="text-gray-400 text-lg">No open lobbies available.</p>
+          </div>
         ) : (
-          <table className="w-full text-left text-white">
-            <thead>
-              <tr>
-                <th
-                  className="p-2 cursor-pointer"
-                  onClick={() => handleSort("name")}
-                >
-                  Lobby {sortBy === "name" && (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
-                <th
-                  className="p-2 cursor-pointer"
-                  onClick={() => handleSort("host.username")}
-                >
-                  Host{" "}
-                  {sortBy === "host.username" &&
-                    (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
-                <th
-                  className="p-2 cursor-pointer"
-                  onClick={() => handleSort("expertiseLevel")}
-                >
-                  Expertise{" "}
-                  {sortBy === "expertiseLevel" &&
-                    (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
-
-                <th className="p-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {lobbies.map((lobby) => (
-                <tr key={lobby.id} className="bg-gray-700">
-                  <td className="p-2">
-                    {lobby.name} {lobby.password ? "🔒" : ""}
-                  </td>
-                  <td className="p-2">{lobby.host.username}</td>
-                  <td className="p-2">{lobby.expertiseLevel}</td>
-
-                  <td className="p-2 text-right">
-                    {user ? (
-                      <button
-                        onClick={() =>
-                          handleJoinLobby(lobby.id, Boolean(lobby.hasPassword))
-                        }
-                        className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors duration-200"
-                      >
-                        Join
-                      </button>
-                    ) : (
-                      <button
-                        disabled
-                        title="Login to Play!"
-                        className="bg-gray-500 text-gray-300 px-3 py-1 rounded cursor-not-allowed"
-                      >
-                        Join
-                      </button>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-gray-100">
+              <thead className="bg-gray-700">
+                <tr>
+                  <th
+                    className="p-4 cursor-pointer hover:bg-gray-600 transition-colors duration-200"
+                    onClick={() => handleSort("name")}
+                  >
+                    Lobby{" "}
+                    {sortBy === "name" && (sortOrder === "asc" ? "▲" : "▼")}
+                  </th>
+                  <th
+                    className="p-4 cursor-pointer hover:bg-gray-600 transition-colors duration-200"
+                    onClick={() => handleSort("host.username")}
+                  >
+                    Host{" "}
+                    {sortBy === "host.username" &&
+                      (sortOrder === "asc" ? "▲" : "▼")}
+                  </th>
+                  <th
+                    className="p-4 cursor-pointer hover:bg-gray-600 transition-colors duration-200"
+                    onClick={() => handleSort("expertiseLevel")}
+                  >
+                    Expertise{" "}
+                    {sortBy === "expertiseLevel" &&
+                      (sortOrder === "asc" ? "▲" : "▼")}
+                  </th>
+                  <th className="p-4"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {lobbies.map((lobby) => (
+                  <tr
+                    key={lobby.id}
+                    className="hover:bg-gray-700 transition-colors duration-200"
+                  >
+                    <td className="p-4">
+                      {lobby.name}{" "}
+                      {lobby.password && (
+                        <span className="text-yellow-500">🔒</span>
+                      )}
+                    </td>
+                    <td className="p-4">{lobby.host.username}</td>
+                    <td className="p-4">
+                      <span
+                        className={`px-2 py-1 rounded-full text-sm ${
+                          lobby.expertiseLevel === "beginner"
+                            ? "bg-green-500/20 text-green-400"
+                            : lobby.expertiseLevel === "intermediate"
+                            ? "bg-yellow-500/20 text-yellow-400"
+                            : "bg-red-500/20 text-red-400"
+                        }`}
+                      >
+                        {lobby.expertiseLevel}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right">
+                      {user ? (
+                        <button
+                          onClick={() =>
+                            handleJoinLobby(
+                              lobby.id,
+                              Boolean(lobby.hasPassword)
+                            )
+                          }
+                          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors duration-200"
+                        >
+                          Join
+                        </button>
+                      ) : (
+                        <button
+                          disabled
+                          title="Login to Play!"
+                          className="bg-gray-600 text-gray-400 px-4 py-2 rounded cursor-not-allowed"
+                        >
+                          Join
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
+
       <PasswordModal
         isOpen={isPasswordModalOpen}
         onClose={() => {

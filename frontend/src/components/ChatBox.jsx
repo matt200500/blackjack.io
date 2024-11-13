@@ -39,6 +39,7 @@ const ChatBox = ({ user, lobbyId }) => {
         user: user.username,
         text: inputMessage.trim(),
         lobbyId: lobbyId,
+        profilePicture: user.profilePicture,
       };
       socketRef.current.emit("chat message", messageData);
       setInputMessage("");
@@ -66,8 +67,13 @@ const ChatBox = ({ user, lobbyId }) => {
                 : "bg-gray-600 mr-auto max-w-[80%]"
             }`}
           >
-            <div className="text-sm font-bold text-blue-200 mb-1">
-              {msg.user}
+            <div className="flex items-center gap-2 mb-1">
+              <img
+                src={`/pfps/${msg.profilePicture || "default"}.png`}
+                alt={msg.user}
+                className="w-6 h-6 rounded-full border border-gray-500"
+              />
+              <div className="text-sm font-bold text-blue-200">{msg.user}</div>
             </div>
             <div className="text-gray-100 break-words leading-relaxed">
               {msg.text}

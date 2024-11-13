@@ -13,34 +13,39 @@ const Navbar = ({ user, handleLogout }) => {
   };
 
   return (
-    <nav className="bg-gray-900 p-4 shadow-lg h-16 max-h-16 flex w-full">
-      <div className="px-2 flex justify-between items-center w-full">
+    <nav className="bg-gradient-to-r from-gray-900 to-gray-800 px-6 shadow-lg h-14 flex items-center w-full">
+      <div className="flex justify-between items-center w-full">
         <NavLink
           to="/"
-          className="text-white hover:text-yellow-400 transition-colors duration-300"
+          className="text-white hover:text-yellow-400 transition-colors duration-300 flex items-center"
         >
-          <h1 className="text-2xl font-extrabold">Poker Online</h1>
+          <h1 className="text-xl font-extrabold tracking-wider">
+            Poker Online
+          </h1>
         </NavLink>
         <ul className="flex items-center space-x-6">
           {user ? (
             <>
               <li
-                className="flex items-center cursor-pointer hover:bg-gray-800 p-2 rounded-xl transition-colors duration-300"
+                className="flex items-center cursor-pointer hover:bg-gray-700/50 py-1.5 px-3 rounded-lg transition-all duration-300 transform hover:scale-105"
                 onClick={handleProfileClick}
               >
                 <img
                   src={`/pfps/${user.profilePicture}.png`}
                   alt={user.username}
-                  className="w-8 h-8 rounded-full mr-2"
+                  className="w-7 h-7 rounded-full mr-2 border-2 border-gray-600"
                 />
-                <span className="text-gray-300">
-                  {user.username} ({user.wins}W - {user.losses}L)
+                <span className="text-gray-200 font-medium text-sm">
+                  {user.username}{" "}
+                  <span className="text-xs text-gray-400">
+                    ({user.wins}W - {user.losses}L)
+                  </span>
                 </span>
               </li>
               <li>
                 <button
                   onClick={handleLogout}
-                  className="text-gray-300 bg-blue-700 text-sm px-2 py-1 hover:text-white"
+                  className="text-white bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded-lg font-medium transition-colors duration-300 text-sm shadow-md hover:shadow-lg"
                 >
                   Logout
                 </button>
@@ -49,14 +54,17 @@ const Navbar = ({ user, handleLogout }) => {
           ) : (
             <>
               <li>
-                <NavLink to="/login" className="text-gray-300 hover:text-white">
+                <NavLink
+                  to="/login"
+                  className="text-gray-200 hover:text-white px-4 py-2 rounded-lg hover:bg-gray-700/50 transition-all duration-300"
+                >
                   Login
                 </NavLink>
               </li>
               <li>
                 <NavLink
                   to="/signup"
-                  className="text-gray-300 hover:text-white"
+                  className="text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors duration-300 shadow-md hover:shadow-lg"
                 >
                   Sign Up
                 </NavLink>
