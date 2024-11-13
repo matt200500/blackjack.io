@@ -107,7 +107,7 @@ const Home = ({ user }) => {
     <div className="w-full mx-auto p-4 sm:p-6 lg:p-8">
       {error && <ErrorMessage message={error} />}
       <h1 className="text-3xl font-bold mb-6 text-gray-100">
-        Welcome to Online Poker
+        Welcome to Poker
       </h1>
 
       {(user?.role === "host" || user?.role === "admin") && (

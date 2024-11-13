@@ -11,6 +11,7 @@ body {
   overflow-x: hidden;
   font-size: 90%;
   background-color: #1a1a1a;
+  font-family: "Titillium Web", sans-serif;
 }
 
 :root {

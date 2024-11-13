@@ -39,5 +39,5 @@ CREATE TABLE game (
 );
 
 -- This is the hash of the password "abc123"
-INSERT INTO users (username, email, password, role, wins, losses, games_played, profile_picture) VALUES ('joe', 'joe@joe.com', '$2b$10$nSQmUZ9ZYBpCAU5I5J2PQOOC/gufrv01wqUh9V0nqPB0WMRgnyMMC', 'admin', '0', '0', '0', 'default');
+INSERT INTO users (username, email, password, role, wins, losses, games_played, profile_picture) VALUES ('joe', 'joe@joe.com', '$2b$10$nSQmUZ9ZYBpCAU5I5J2PQOOC/gufrv01wqUh9V0nqPB0WMRgnyMMC', 'admin', '5', '0', '0', 'default');
 INSERT INTO users (username, email, password, role, wins, losses, games_played, profile_picture) VALUES ('hi', 'hi@hi.com', '$2b$10$nSQmUZ9ZYBpCAU5I5J2PQOOC/gufrv01wqUh9V0nqPB0WMRgnyMMC', 'host', '0', '0', '0', 'default');

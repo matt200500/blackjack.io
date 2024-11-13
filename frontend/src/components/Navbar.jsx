@@ -17,11 +17,10 @@ const Navbar = ({ user, handleLogout }) => {
       <div className="flex justify-between items-center w-full">
         <NavLink
           to="/"
-          className="text-white hover:text-yellow-400 transition-colors duration-300 flex items-center"
+          className="text-white hover:text-yellow-400 transition-colors duration-300 flex items-center space-x-2"
         >
-          <h1 className="text-xl font-extrabold tracking-wider">
-            Poker Online
-          </h1>
+          <img src="/logo.webp" alt="Poker Logo" className="h-8 w-8" />
+          <h1 className="text-xl font-extrabold tracking-wider">Poker</h1>
         </NavLink>
         <ul className="flex items-center space-x-6">
           {user ? (
