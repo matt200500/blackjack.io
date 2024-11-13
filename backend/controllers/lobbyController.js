@@ -207,14 +207,12 @@ const joinLobby = async (req, res) => {
       await connection.commit();
       connection.release();
 
-      setTimeout(() => {
-        io.to(lobbyId).emit("player joined", {
-          players: players.map((player) => ({
-            id: player.user_id,
-            username: player.username,
-          })),
-        });
-      }, 500);
+      io.to(lobbyId).emit("player joined", {
+        players: players.map((player) => ({
+          id: player.user_id,
+          username: player.username,
+        })),
+      });
 
       res.json({
         message: "Joined lobby successfully",

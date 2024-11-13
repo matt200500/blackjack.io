@@ -26,20 +26,9 @@ const Lobby = ({ user }) => {
   }, [id, navigate]);
 
   useEffect(() => {
-    fetchLobby();
-  }, [fetchLobby]);
-
-  useEffect(() => {
-    if (lobby) {
-      console.log("Lobby:", lobby);
-      console.log("Current user:", user);
-      console.log("Is current user the host?", lobby.host.id === user.id);
-    }
-  }, [lobby, user]);
-
-  useEffect(() => {
     socketRef.current = io("http://localhost:3001");
 
+    // Set up event listeners first
     socketRef.current.on("request players update", (data) => {
       if (data.lobbyId === id) {
         fetchLobby();
@@ -62,20 +51,22 @@ const Lobby = ({ user }) => {
     });
 
     socketRef.current.on("removed from lobby", (data) => {
-      console.log(data.lobbyId, id, data.userId, user.id);
       if (data.lobbyId === id && data.userId === user.id) {
         setError("You have been removed from the lobby");
         socketRef.current.emit("leave lobby", id);
         setTimeout(() => navigate("/"), 3000);
       } else if (data.lobbyId === id) {
-        // Update the players list for other users in the lobby
         setPlayers((prevPlayers) =>
           prevPlayers.filter((player) => player.id !== data.userId)
         );
       }
     });
 
+    // Join the lobby after setting up listeners
     socketRef.current.emit("join lobby", id);
+
+    // Then fetch initial lobby data
+    fetchLobby();
 
     return () => {
       socketRef.current.off("request players update");
