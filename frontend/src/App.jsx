@@ -6,9 +6,9 @@ import {
   Navigate,
 } from "react-router-dom";
 import Navbar from "./components/Navbar";
-// import Home from "./pages/Home";
-// import Login from "./pages/Login";
-// import SignUp from "./pages/SignUp";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import SignUp from "./pages/SignUp";
 // import Profile from "./pages/Profile";
 // import Lobby from "./pages/Lobby";
 import ErrorMessage from "./components/ErrorMessage";
@@ -43,10 +43,9 @@ const App = () => {
         <Navbar user={user} setUser={setUser} handleLogout={handleLogout} />
         {error && <ErrorMessage message={error} />}
         <Routes>
-          {/* <Route path="/" element={<Home user={user} />} /> */}
-          <Route path="/" />
-          {/* <Route path="/login" element={<Login setUser={setUser} />} /> */}
-          {/* <Route path="/signup" element={<SignUp setUser={setUser} />} /> */}
+          <Route path="/" element={<Home user={user} />} />
+          <Route path="/login" element={<Login setUser={setUser} />} />
+          <Route path="/signup" element={<SignUp setUser={setUser} />} />
           {/* <Route
             path="/profile"
             element={
