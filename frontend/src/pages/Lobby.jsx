@@ -4,6 +4,7 @@ import ChatBox from "../components/ChatBox";
 import ErrorMessage from "../components/ErrorMessage";
 import axiosInstance from "../utils/axiosInstance";
 import io from "socket.io-client";
+import LobbySettings from "../components/LobbySettings";
 
 const Lobby = ({ user }) => {
   const { id } = useParams();
@@ -60,6 +61,13 @@ const Lobby = ({ user }) => {
           prevPlayers.filter((player) => player.id !== data.userId)
         );
       }
+    });
+
+    socketRef.current.on("lobby settings updated", (updatedLobby) => {
+      setLobby((prevLobby) => ({
+        ...prevLobby,
+        ...updatedLobby,
+      }));
     });
 
     // Join the lobby after setting up listeners
@@ -123,6 +131,19 @@ const Lobby = ({ user }) => {
       )}
       <h1 className="text-2xl font-bold mb-4">{lobby.name}</h1>
       <p className="text-lg mb-4">Expertise Level: {lobby.expertiseLevel}</p>
+      {(user.role === "host" || user.role === "admin") && (
+        <div className="mb-4">
+          <LobbySettings
+            lobby={lobby}
+            onUpdate={(updatedLobby) =>
+              setLobby((prevLobby) => ({
+                ...prevLobby,
+                ...updatedLobby,
+              }))
+            }
+          />
+        </div>
+      )}
       <button
         onClick={leaveLobby}
         className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors duration-200 mb-4"

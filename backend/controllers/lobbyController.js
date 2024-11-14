@@ -100,6 +100,8 @@ const getLobbies = async (req, res) => {
       query += ` AND (l.lobby_password IS NULL OR l.lobby_password = '')`;
     }
 
+    query += ` AND (l.locked = 0)`;
+
     // Add sorting
     const validSortFields = [
       "lobby_id",
@@ -464,6 +466,94 @@ const removePlayer = async (req, res) => {
   }
 };
 
+const updateLobbySettings = async (req, res) => {
+  const { id: lobbyId } = req.params;
+  const { name, password, locked } = req.body;
+  const userId = req.user.user_id;
+  const io = req.app.get("io");
+
+  try {
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Get lobby
+      const [lobbies] = await connection.execute(
+        "SELECT * FROM lobby WHERE lobby_id = ?",
+        [lobbyId]
+      );
+
+      if (lobbies.length === 0) {
+        await connection.rollback();
+        connection.release();
+        return res.status(404).json({ message: "Lobby not found" });
+      }
+
+      const lobby = lobbies[0];
+
+      // Check if user is host
+      if (lobby.lobby_owner !== userId) {
+        await connection.rollback();
+        connection.release();
+        return res
+          .status(403)
+          .json({ message: "Only hosts can modify lobby settings" });
+      }
+
+      // Prepare update values, ensuring no undefined values
+      const updatedName = name || lobby.lobby_name;
+      const updatedLocked = locked !== undefined ? locked : lobby.locked;
+      let updatedPassword = lobby.lobby_password; // Keep existing password by default
+
+      // Only update password if it's explicitly provided or set to null
+      if (password !== undefined) {
+        updatedPassword = password ? await bcrypt.hash(password, 10) : null;
+      }
+
+      // Update lobby settings
+      await connection.execute(
+        "UPDATE lobby SET lobby_name = ?, lobby_password = ?, locked = ? WHERE lobby_id = ?",
+        [updatedName, updatedPassword, updatedLocked, lobbyId]
+      );
+
+      // Get updated lobby info
+      const [updatedLobbies] = await connection.execute(
+        `SELECT l.*, u.username as host_username
+         FROM lobby l
+         JOIN users u ON l.lobby_owner = u.user_id
+         WHERE l.lobby_id = ?`,
+        [lobbyId]
+      );
+
+      await connection.commit();
+      connection.release();
+
+      const updatedLobby = {
+        id: updatedLobbies[0].lobby_id,
+        name: updatedLobbies[0].lobby_name,
+        hasPassword: !!updatedLobbies[0].lobby_password,
+        locked: updatedLobbies[0].locked,
+        expertiseLevel: updatedLobbies[0].expertise_level,
+      };
+
+      // Notify all clients in the lobby about the changes
+      io.to(lobbyId).emit("lobby settings updated", updatedLobby);
+
+      res.json(updatedLobby);
+    } catch (error) {
+      await connection.rollback();
+      connection.release();
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error in updateLobbySettings:", error);
+    res.status(500).json({
+      message: "Failed to update lobby settings",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createLobby,
   getLobbies,
@@ -471,4 +561,5 @@ module.exports = {
   joinLobby,
   leaveLobby,
   removePlayer,
+  updateLobbySettings,
 };

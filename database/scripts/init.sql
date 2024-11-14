@@ -11,15 +11,16 @@ CREATE TABLE users (
     profile_picture VARCHAR(255)
 );
 
--- Crate lobby table
+-- Create lobby table
 CREATE TABLE lobby (
     lobby_id INT AUTO_INCREMENT PRIMARY KEY,
     lobby_name VARCHAR(255) NOT NULL,
     lobby_password VARCHAR(255),
     expertise_level VARCHAR(255) NOT NULL,
     is_open BOOLEAN NOT NULL DEFAULT TRUE,
+    locked BOOLEAN NOT NULL DEFAULT FALSE,
     lobby_owner INT,
-    user_ids JSON,
+    user_ids VARCHAR(255),
     pot INT(255) DEFAULT 0,
     big_blind INT(255),
     small_blind INT(255),
@@ -41,3 +42,5 @@ CREATE TABLE game (
 -- This is the hash of the password "abc123"
 INSERT INTO users (username, email, password, role, wins, losses, games_played, profile_picture) VALUES ('joe', 'joe@joe.com', '$2b$10$nSQmUZ9ZYBpCAU5I5J2PQOOC/gufrv01wqUh9V0nqPB0WMRgnyMMC', 'admin', '5', '0', '0', 'default');
 INSERT INTO users (username, email, password, role, wins, losses, games_played, profile_picture) VALUES ('hi', 'hi@hi.com', '$2b$10$nSQmUZ9ZYBpCAU5I5J2PQOOC/gufrv01wqUh9V0nqPB0WMRgnyMMC', 'host', '0', '0', '0', 'default');
+INSERT INTO users (username, email, password, role, wins, losses, games_played, profile_picture) VALUES ('yo', 'yo@yo.com', '$2b$10$nSQmUZ9ZYBpCAU5I5J2PQOOC/gufrv01wqUh9V0nqPB0WMRgnyMMC', 'player', '0', '0', '0', 'default');
+INSERT INTO users (username, email, password, role, wins, losses, games_played, profile_picture) VALUES ('hey', 'hey@hey.com', '$2b$10$nSQmUZ9ZYBpCAU5I5J2PQOOC/gufrv01wqUh9V0nqPB0WMRgnyMMC', 'player', '0', '0', '0', 'default');
