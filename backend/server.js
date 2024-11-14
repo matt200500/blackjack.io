@@ -43,20 +43,13 @@ io.on("connection", (socket) => {
   console.log("A user connected");
 
   socket.on("join lobby", (lobbyId) => {
-    socket.join(lobbyId);
     console.log(`User joined lobby: ${lobbyId}`);
-
-    // Emit an event to request current players list
-    io.to(lobbyId).emit("request players update", { lobbyId });
+    socket.join(lobbyId);
   });
 
   socket.on("leave lobby", (lobbyId) => {
-    socket.leave(lobbyId);
     console.log(`User left lobby: ${lobbyId}`);
-  });
-
-  socket.on("chat message", (msg) => {
-    io.to(msg.lobbyId).emit("chat message", msg);
+    socket.leave(lobbyId);
   });
 
   socket.on("disconnect", () => {

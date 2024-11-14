@@ -18,7 +18,7 @@ const createLobby = async (req, res) => {
           password ? await bcrypt.hash(password, 10) : null,
           expertiseLevel,
           hostId,
-          JSON.stringify([hostId]), // Ensure it's a properly formatted JSON array
+          hostId.toString(),
         ]
       );
 
@@ -75,14 +75,17 @@ const getLobbies = async (req, res) => {
   try {
     const connection = await pool.getConnection();
 
-    // Build the base query with JSON_LENGTH instead of JSON_ARRAY_LENGTH
+    // Build the base query with comma counting instead of JSON_LENGTH
     let query = `
       SELECT 
         l.lobby_id as id,
         l.lobby_name as name,
         l.expertise_level as expertiseLevel,
         CASE WHEN l.lobby_password IS NOT NULL AND l.lobby_password != '' THEN 1 ELSE 0 END as hasPassword,
-        JSON_LENGTH(COALESCE(l.user_ids, '[]')) as playerCount,
+        CASE 
+          WHEN l.user_ids IS NULL OR l.user_ids = '' THEN 0 
+          ELSE (LENGTH(l.user_ids) - LENGTH(REPLACE(l.user_ids, ',', '')) + 1)
+        END as playerCount,
         u.username as hostUsername,
         u.user_id as hostId
       FROM lobby l
@@ -175,22 +178,14 @@ const joinLobby = async (req, res) => {
         }
       }
 
-      // Add player to user_ids if not already present
-      let userIds;
-      try {
-        userIds = JSON.parse(lobby.user_ids);
-        if (!Array.isArray(userIds)) {
-          userIds = [];
-        }
-      } catch (error) {
-        userIds = [];
-      }
+      // Parse user_ids from comma-separated string
+      let userIds = lobby.user_ids ? lobby.user_ids.split(",") : [];
 
-      if (!userIds.includes(userId)) {
-        userIds.push(userId);
+      if (!userIds.includes(userId.toString())) {
+        userIds.push(userId.toString());
         await connection.execute(
           "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
-          [JSON.stringify(userIds), lobbyId]
+          [userIds.join(","), lobbyId]
         );
       }
 
@@ -199,27 +194,27 @@ const joinLobby = async (req, res) => {
         `
         SELECT user_id, username
         FROM users
-        WHERE user_id IN (?)
+        WHERE user_id IN (${userIds.map(() => "?").join(",")})
       `,
-        [userIds]
+        userIds
       );
 
       await connection.commit();
       connection.release();
 
+      // Emit to ALL clients in the lobby
+      const formattedPlayers = players.map((player) => ({
+        id: player.user_id,
+        username: player.username,
+      }));
+
       io.to(lobbyId).emit("player joined", {
-        players: players.map((player) => ({
-          id: player.user_id,
-          username: player.username,
-        })),
+        players: formattedPlayers,
       });
 
       res.json({
         message: "Joined lobby successfully",
-        players: players.map((player) => ({
-          id: player.user_id,
-          username: player.username,
-        })),
+        players: formattedPlayers,
       });
     } catch (error) {
       await connection.rollback();
@@ -228,7 +223,6 @@ const joinLobby = async (req, res) => {
     }
   } catch (error) {
     console.error("Error in joinLobby:", error);
-    console.log(error);
     res
       .status(500)
       .json({ message: "Failed to join lobby", error: error.message });
@@ -239,7 +233,6 @@ const getLobby = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Get lobby with host information
     const [lobbies] = await pool.execute(
       `
       SELECT l.*, u.username as host_username
@@ -255,17 +248,21 @@ const getLobby = async (req, res) => {
     }
 
     const lobby = lobbies[0];
-    const playerIds = JSON.parse(lobby.user_ids);
 
-    // Get player information
-    const [players] = await pool.execute(
-      `
-      SELECT user_id, username
-      FROM users
-      WHERE user_id IN (?)
-    `,
-      [playerIds]
-    );
+    // Parse user_ids from comma-separated string
+    const playerIds = lobby.user_ids ? lobby.user_ids.split(",") : [];
+
+    // Get player information if there are any players
+    let players = [];
+    if (playerIds.length > 0) {
+      const [playerResults] = await pool.execute(
+        `SELECT user_id, username 
+         FROM users 
+         WHERE user_id IN (${playerIds.map(() => "?").join(",")})`,
+        playerIds
+      );
+      players = playerResults;
+    }
 
     const formattedLobby = {
       id: lobby.lobby_id,
@@ -284,9 +281,10 @@ const getLobby = async (req, res) => {
     res.json(formattedLobby);
   } catch (error) {
     console.error("Error in getLobby:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to get lobby", error: error.message });
+    res.status(500).json({
+      message: "Failed to get lobby",
+      error: error.message,
+    });
   }
 };
 
@@ -327,35 +325,24 @@ const leaveLobby = async (req, res) => {
       }
 
       // Otherwise, remove user from user_ids
-      let userIds;
-      try {
-        userIds = JSON.parse(lobby.user_ids);
-        if (!Array.isArray(userIds)) {
-          userIds = [];
-        }
-      } catch (error) {
-        console.error("Error parsing user_ids:", error);
-        userIds = [];
-      }
-
-      const updatedUserIds = userIds.filter(
-        (id) => Number(id) !== Number(userId)
-      );
+      const userIds = lobby.user_ids ? lobby.user_ids.split(",") : [];
+      const updatedUserIds = userIds.filter((id) => id !== userId.toString());
 
       await connection.execute(
         "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
-        [JSON.stringify(updatedUserIds), lobbyId]
+        [updatedUserIds.join(","), lobbyId]
       );
 
       // Get updated player information
-      const [players] = await connection.execute(
-        `
-        SELECT user_id, username
-        FROM users
-        WHERE user_id IN (?)
-      `,
-        [updatedUserIds.length > 0 ? updatedUserIds : [0]]
-      );
+      const [players] =
+        updatedUserIds.length > 0
+          ? await connection.execute(
+              `SELECT user_id, username FROM users WHERE user_id IN (${updatedUserIds
+                .map(() => "?")
+                .join(",")})`,
+              updatedUserIds
+            )
+          : [[]];
 
       await connection.commit();
       connection.release();
@@ -426,37 +413,25 @@ const removePlayer = async (req, res) => {
         return res.status(403).json({ message: "You cannot remove yourself" });
       }
 
-      // Parse user_ids safely
-      let userIds;
-      try {
-        userIds = JSON.parse(lobby.user_ids || "[]");
-        if (!Array.isArray(userIds)) {
-          userIds = [];
-        }
-      } catch (error) {
-        console.error("Error parsing user_ids:", error);
-        userIds = [];
-      }
-
-      // Remove player from user_ids
-      const updatedUserIds = userIds.filter(
-        (id) => Number(id) !== Number(playerId)
-      );
+      // Parse user_ids as comma-separated string
+      const userIds = lobby.user_ids ? lobby.user_ids.split(",") : [];
+      const updatedUserIds = userIds.filter((id) => id !== playerId.toString());
 
       await connection.execute(
         "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
-        [JSON.stringify(updatedUserIds), lobbyId]
+        [updatedUserIds.join(","), lobbyId]
       );
 
       // Get updated player information
-      const [players] = await connection.execute(
-        `
-        SELECT user_id, username
-        FROM users
-        WHERE user_id IN (?)
-      `,
-        [updatedUserIds.length > 0 ? updatedUserIds : [0]]
-      );
+      const [players] =
+        updatedUserIds.length > 0
+          ? await connection.execute(
+              `SELECT user_id, username FROM users WHERE user_id IN (${updatedUserIds
+                .map(() => "?")
+                .join(",")})`,
+              updatedUserIds
+            )
+          : [[]];
 
       await connection.commit();
       connection.release();
