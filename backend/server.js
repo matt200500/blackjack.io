@@ -52,6 +52,16 @@ io.on("connection", (socket) => {
     socket.leave(lobbyId);
   });
 
+  socket.on("chat message", (messageData) => {
+    console.log("Chat message received:", messageData);
+    // Broadcast the message to all clients in the specific lobby
+    io.to(messageData.lobbyId).emit("chat message", {
+      user: messageData.user,
+      text: messageData.text,
+      profilePicture: messageData.profilePicture,
+    });
+  });
+
   socket.on("disconnect", () => {
     console.log("User disconnected");
   });

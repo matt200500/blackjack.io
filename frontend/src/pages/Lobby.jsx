@@ -14,6 +14,13 @@ const Lobby = ({ user }) => {
   const navigate = useNavigate();
   const socketRef = useRef();
 
+  const handleLobbyUpdate = useCallback((updatedLobby) => {
+    setLobby((prevLobby) => ({
+      ...prevLobby,
+      ...updatedLobby,
+    }));
+  }, []);
+
   const fetchLobby = useCallback(async () => {
     try {
       const response = await axiosInstance.get(`/lobbies/${id}`);
@@ -76,16 +83,25 @@ const Lobby = ({ user }) => {
     // Then fetch initial lobby data
     fetchLobby();
 
+    // Cleanup function
     return () => {
+      // If user is host, handle cleanup
+      if (lobby?.host?.id === user.id) {
+        axiosInstance.post(`/lobbies/leave/${id}`).catch((error) => {
+          console.error("Error during host cleanup:", error);
+        });
+      }
+
       socketRef.current.off("request players update");
       socketRef.current.off("host left lobby");
       socketRef.current.off("player joined");
       socketRef.current.off("player left");
       socketRef.current.off("removed from lobby");
+      socketRef.current.off("lobby settings updated");
       socketRef.current.emit("leave lobby", id);
       socketRef.current.disconnect();
     };
-  }, [id, navigate, user.id, fetchLobby]);
+  }, [id, navigate, user.id, fetchLobby, lobby?.host?.id]);
 
   const leaveLobby = async () => {
     try {
@@ -125,55 +141,103 @@ const Lobby = ({ user }) => {
   return (
     <div className="p-8">
       {error && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-70 flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-gray-900/90 flex justify-center items-center z-50">
           <ErrorMessage message={error} />
         </div>
       )}
-      <h1 className="text-2xl font-bold mb-4">{lobby.name}</h1>
-      <p className="text-lg mb-4">Expertise Level: {lobby.expertiseLevel}</p>
-      {(user.role === "host" || user.role === "admin") && (
-        <div className="mb-4">
-          <LobbySettings
-            lobby={lobby}
-            onUpdate={(updatedLobby) =>
-              setLobby((prevLobby) => ({
-                ...prevLobby,
-                ...updatedLobby,
-              }))
-            }
-          />
-        </div>
-      )}
-      <button
-        onClick={leaveLobby}
-        className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors duration-200 mb-4"
-      >
-        Leave Lobby
-      </button>
-      <div className="mb-4">
-        <h2 className="text-xl font-bold mb-2">Other Players:</h2>
-        <ul>
-          {players
-            .filter((player) => player.id !== user.id)
-            .map((player) => (
-              <li
-                key={player.id}
-                className="flex items-center justify-between mb-2"
+
+      {/* Main Lobby Container */}
+      <div className="bg-gray-800/50 p-6 rounded-lg shadow-lg border border-gray-700 w-full">
+        {/* Header Section */}
+        <div className="flex justify-between items-start mb-6 pb-6 border-b border-gray-700">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-100 mb-2">
+              {lobby.name}
+            </h1>
+            <div className="flex items-center">
+              <span className="text-gray-400">Expertise Level:</span>
+              <span
+                className={`ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${
+                  lobby.expertiseLevel === "beginner"
+                    ? "bg-green-500/20 text-green-400"
+                    : lobby.expertiseLevel === "intermediate"
+                    ? "bg-yellow-500/20 text-yellow-400"
+                    : "bg-red-500/20 text-red-400"
+                }`}
               >
-                <span>{player.username}</span>
-                {(user.role === "host" || user.role === "admin") && (
-                  <button
-                    onClick={() => removePlayer(player.id)}
-                    className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 transition-colors duration-200"
-                  >
-                    Remove
-                  </button>
+                {lobby.expertiseLevel}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={leaveLobby}
+            className="bg-red-500/80 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors duration-200 font-medium"
+          >
+            Leave Lobby
+          </button>
+        </div>
+
+        {/* Settings Section (if host/admin) */}
+        {(user.role === "host" || user.role === "admin") && (
+          <div className="mb-6">
+            <LobbySettings lobby={lobby} onUpdate={handleLobbyUpdate} />
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
+          {/* Players List */}
+          <div className="overflow-hidden">
+            <div className="bg-gray-700/50 rounded-lg border border-gray-600 flex flex-col h-full">
+              <div className="p-4 border-b border-gray-600">
+                <h2 className="text-xl font-bold text-gray-100">Players</h2>
+              </div>
+              <div className=" overflow-y-auto flex-1">
+                {players.filter((player) => player.id !== user.id).length ===
+                0 ? (
+                  <p className="text-gray-400 text-center py-4">
+                    No other players
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {players
+                      .filter((player) => player.id !== user.id)
+                      .map((player) => (
+                        <li
+                          key={player.id}
+                          className="flex items-center justify-between p-3 rounded bg-gray-600/50 hover:bg-gray-600 transition-colors duration-200"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 rounded-full bg-gray-500/50 flex items-center justify-center">
+                              <span className="text-sm font-medium text-gray-200">
+                                {player.username.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <span className="text-gray-200 font-medium">
+                              {player.username}
+                            </span>
+                          </div>
+                          {(user.role === "host" || user.role === "admin") && (
+                            <button
+                              onClick={() => removePlayer(player.id)}
+                              className="bg-red-500/80 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors duration-200 text-sm font-medium"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                  </ul>
                 )}
-              </li>
-            ))}
-        </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Chat Section */}
+          <div className="lg:col-span-2 h-full">
+            <ChatBox user={user} lobbyId={id} />
+          </div>
+        </div>
       </div>
-      <ChatBox user={user} lobbyId={id} />
     </div>
   );
 };

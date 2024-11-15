@@ -4,6 +4,12 @@ import { useNavigate } from "react-router-dom";
 import axiosInstance from "../utils/axiosInstance";
 import PasswordModal from "../components/PasswordModal";
 import ErrorMessage from "../components/ErrorMessage";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faRotate,
+  faLock,
+  faLockOpen,
+} from "@fortawesome/free-solid-svg-icons";
 
 const Home = ({ user }) => {
   const [lobbies, setLobbies] = useState([]);
@@ -18,6 +24,7 @@ const Home = ({ user }) => {
   const [error, setError] = useState("");
   const [includePasswordProtected, setIncludePasswordProtected] =
     useState("all");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     fetchLobbies();
@@ -103,6 +110,12 @@ const Home = ({ user }) => {
     setIncludePasswordProtected(e.target.value);
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchLobbies();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
   return (
     <div className="w-full mx-auto p-4 sm:p-6 lg:p-8">
       {error && <ErrorMessage message={error} />}
@@ -113,7 +126,7 @@ const Home = ({ user }) => {
       {(user?.role === "host" || user?.role === "admin") && (
         <form
           onSubmit={handleCreateLobby}
-          className="bg-gray-800 p-6 rounded-lg shadow-lg mb-8"
+          className="bg-gray-800/50 p-6 rounded-lg shadow-lg mb-8 border border-gray-700"
         >
           <h2 className="text-xl font-semibold mb-4 text-gray-100">
             Create New Lobby
@@ -124,19 +137,19 @@ const Home = ({ user }) => {
               value={lobbyName}
               onChange={(e) => setLobbyName(e.target.value)}
               placeholder="Enter Lobby Name"
-              className="p-2 rounded bg-gray-700 text-white placeholder-gray-400 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="p-2 rounded bg-gray-700/50 text-white placeholder-gray-400 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
             <input
               type="password"
               value={lobbyPassword}
               onChange={(e) => setLobbyPassword(e.target.value)}
               placeholder="Optional Password"
-              className="p-2 rounded bg-gray-700 text-white placeholder-gray-400 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="p-2 rounded bg-gray-700/50 text-white placeholder-gray-400 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
             <select
               value={expertiseLevel}
               onChange={(e) => setExpertiseLevel(e.target.value)}
-              className="p-2 rounded bg-gray-700 text-white border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="p-2 rounded bg-gray-700/50 text-white border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             >
               <option value="beginner">Beginner</option>
               <option value="intermediate">Intermediate</option>
@@ -152,15 +165,28 @@ const Home = ({ user }) => {
         </form>
       )}
 
-      <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-100 w-full">
-            Open Lobbies
-          </h2>
+      <div className="bg-gray-800/50 p-6 rounded-lg shadow-lg border border-gray-700">
+        <div className="flex justify-between items-center mb-6 gap-8">
+          <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-bold text-gray-100">Lobbies</h2>
+            <div
+              onClick={handleRefresh}
+              className={`p-2 rounded-full hover:bg-gray-700 hover:cursor-pointer transition-all duration-200 w-8 h-8 flex items-center justify-center ${
+                isRefreshing ? "[animation:spin_0.5s_linear_infinite]" : ""
+              }`}
+              disabled={isRefreshing}
+              title="Refresh lobbies"
+            >
+              <FontAwesomeIcon
+                icon={faRotate}
+                className="text-gray-400 hover:text-gray-200 w-4 h-4"
+              />
+            </div>
+          </div>
           <select
             value={includePasswordProtected}
             onChange={handleFilterChange}
-            className="bg-gray-700 text-white p-2 rounded border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="bg-gray-700/50 text-white p-2 rounded border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           >
             <option value="all">Any Password</option>
             <option value="yes">Password Protected</option>
@@ -175,17 +201,17 @@ const Home = ({ user }) => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-gray-100">
-              <thead className="bg-gray-700">
+              <thead className="bg-gray-900/50">
                 <tr>
                   <th
-                    className="p-4 cursor-pointer hover:bg-gray-600 transition-colors duration-200"
+                    className="p-4 cursor-pointer hover:bg-gray-700/50 transition-colors duration-200"
                     onClick={() => handleSort("name")}
                   >
                     Lobby{" "}
                     {sortBy === "name" && (sortOrder === "asc" ? "▲" : "▼")}
                   </th>
                   <th
-                    className="p-4 cursor-pointer hover:bg-gray-600 transition-colors duration-200"
+                    className="p-4 cursor-pointer hover:bg-gray-700/50 transition-colors duration-200"
                     onClick={() => handleSort("host.username")}
                   >
                     Host{" "}
@@ -193,7 +219,7 @@ const Home = ({ user }) => {
                       (sortOrder === "asc" ? "▲" : "▼")}
                   </th>
                   <th
-                    className="p-4 cursor-pointer hover:bg-gray-600 transition-colors duration-200"
+                    className="p-4 cursor-pointer hover:bg-gray-700/50 transition-colors duration-200"
                     onClick={() => handleSort("expertiseLevel")}
                   >
                     Expertise{" "}
@@ -203,22 +229,44 @@ const Home = ({ user }) => {
                   <th className="p-4"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-700">
+              <tbody className="divide-y divide-gray-700/50">
                 {lobbies.map((lobby) => (
                   <tr
                     key={lobby.id}
-                    className="hover:bg-gray-700 transition-colors duration-200"
+                    className="hover:bg-gray-700/30 transition-colors duration-200"
                   >
                     <td className="p-4">
-                      {lobby.name}{" "}
-                      {lobby.password && (
-                        <span className="text-yellow-500">🔒</span>
-                      )}
+                      <div className="flex items-center">
+                        <span className="font-medium text-gray-200">
+                          {lobby.name}
+                        </span>
+                        <div className="ml-3 flex items-center">
+                          <FontAwesomeIcon
+                            icon={lobby.hasPassword ? faLock : faLockOpen}
+                            className={`w-3.5 h-3.5 ${
+                              lobby.hasPassword
+                                ? "text-yellow-500"
+                                : "text-gray-400"
+                            }`}
+                            title={
+                              lobby.hasPassword
+                                ? "Password Protected"
+                                : "No Password"
+                            }
+                          />
+                        </div>
+                      </div>
                     </td>
-                    <td className="p-4">{lobby.host.username}</td>
+                    <td className="p-4">
+                      <div className="flex items-center">
+                        <span className="text-gray-300">
+                          {lobby.host.username}
+                        </span>
+                      </div>
+                    </td>
                     <td className="p-4">
                       <span
-                        className={`px-2 py-1 rounded-full text-sm ${
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${
                           lobby.expertiseLevel === "beginner"
                             ? "bg-green-500/20 text-green-400"
                             : lobby.expertiseLevel === "intermediate"

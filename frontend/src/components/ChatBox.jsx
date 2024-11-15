@@ -47,8 +47,8 @@ const ChatBox = ({ user, lobbyId }) => {
   };
 
   return (
-    <div className="bg-gray-800 p-4 rounded-lg shadow-lg w-full max-w-2xl h-[400px] md:h-[600px] flex flex-col">
-      <h2 className="text-xl font-bold mb-4 text-white flex items-center">
+    <div className="bg-gray-800/50 p-4 rounded-lg shadow-lg w-full max-w-2xl h-[400px] md:h-[600px] flex flex-col border border-gray-700">
+      <h2 className="text-xl font-bold mb-4 text-gray-100 flex items-center">
         <span className="flex-grow">Chat</span>
         {user && (
           <span className="text-sm font-medium text-blue-300">
@@ -57,14 +57,14 @@ const ChatBox = ({ user, lobbyId }) => {
         )}
       </h2>
 
-      <div className="flex-grow overflow-y-auto mb-4 bg-gray-700 p-3 rounded text-white scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-700">
+      <div className="flex-grow overflow-y-auto mb-4 bg-gray-700/50 p-3 rounded text-white scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-700 border border-gray-600">
         {messages.map((msg, index) => (
           <div
             key={index}
             className={`mb-3 p-2 rounded-lg ${
               user && msg.user === user.username
-                ? "bg-blue-600 ml-auto max-w-[80%]"
-                : "bg-gray-600 mr-auto max-w-[80%]"
+                ? "bg-blue-600/80 ml-auto max-w-[80%]"
+                : "bg-gray-600/80 mr-auto max-w-[80%]"
             }`}
           >
             <div className="flex items-center gap-2 mb-1">
@@ -89,19 +89,19 @@ const ChatBox = ({ user, lobbyId }) => {
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            className="flex-grow p-2 rounded bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0"
+            className="flex-grow p-2 rounded bg-gray-700/50 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-600 min-w-0"
             placeholder="Type a message..."
           />
           <button
             type="submit"
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors duration-200 flex items-center justify-center whitespace-nowrap"
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center whitespace-nowrap font-medium"
           >
             <FontAwesomeIcon icon={faPaperPlane} className="mr-2" />
             Send
           </button>
         </form>
       ) : (
-        <div className="bg-gray-700 text-yellow-500 p-4 rounded flex items-center justify-center">
+        <div className="bg-gray-700/50 text-yellow-500 p-4 rounded flex items-center justify-center border border-gray-600">
           <FontAwesomeIcon icon={faLock} className="mr-2" />
           You must be logged in to chat
         </div>
