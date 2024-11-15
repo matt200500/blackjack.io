@@ -315,6 +315,7 @@ const getLobby = async (req, res) => {
 const leaveLobby = async (req, res) => {
   const lobbyId = req.params.id;
   const userId = req.user.user_id;
+  const io = req.app.get("io");
 
   try {
     const connection = await pool.getConnection();
@@ -322,26 +323,59 @@ const leaveLobby = async (req, res) => {
 
     try {
       // Get current lobby state
-      const [lobby] = await connection.execute(
+      const [lobbies] = await connection.execute(
         "SELECT user_ids, lobby_owner FROM lobby WHERE lobby_id = ?",
         [lobbyId]
       );
 
-      if (!lobby.length) {
+      if (!lobbies.length) {
         throw new Error("Lobby not found");
       }
 
-      let userIds = lobby[0].user_ids.split(",");
-      userIds = userIds.filter((id) => id !== userId.toString());
+      const lobby = lobbies[0];
+      const isHost = lobby.lobby_owner === userId;
 
-      // Update lobby
-      await connection.execute(
-        "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
-        [userIds.join(","), lobbyId]
-      );
+      if (isHost) {
+        // If host is leaving, delete the lobby and notify all users
+        await connection.execute("DELETE FROM lobby WHERE lobby_id = ?", [
+          lobbyId,
+        ]);
+
+        // Notify all users in the lobby that the host left
+        io.to(lobbyId).emit("host left lobby", {
+          message: "Host has left the lobby",
+          lobbyId,
+        });
+
+        // Disconnect all sockets from this room
+        const room = io.sockets.adapter.rooms.get(lobbyId.toString());
+        if (room) {
+          for (const socketId of room) {
+            io.sockets.sockets.get(socketId)?.leave(lobbyId);
+          }
+        }
+      } else {
+        // Regular player leaving
+        let userIds = lobby.user_ids ? lobby.user_ids.split(",") : [];
+        userIds = userIds.filter((id) => id !== userId.toString());
+
+        await connection.execute(
+          "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
+          [userIds.join(","), lobbyId]
+        );
+
+        // Notify remaining players about the leave
+        io.to(lobbyId).emit("player left", {
+          userId,
+          remainingPlayers: userIds,
+        });
+      }
 
       await connection.commit();
-      res.status(200).json({ message: "Successfully left lobby" });
+      res.status(200).json({
+        message: "Successfully left lobby",
+        wasHost: isHost,
+      });
     } catch (error) {
       await connection.rollback();
       throw error;
