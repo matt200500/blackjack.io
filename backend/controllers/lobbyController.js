@@ -12,13 +12,25 @@ const createLobby = async (req, res) => {
     try {
       // Create lobby with properly formatted JSON array of user IDs
       const [result] = await connection.execute(
-        "INSERT INTO lobby (lobby_name, lobby_password, expertise_level, lobby_owner, user_ids) VALUES (?, ?, ?, ?, ?)",
+        `INSERT INTO lobby (
+          lobby_name, 
+          lobby_password, 
+          expertise_level, 
+          lobby_owner, 
+          user_ids,
+          big_blind,
+          small_blind,
+          starting_bank
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           name,
           password ? await bcrypt.hash(password, 10) : null,
           expertiseLevel,
           hostId,
           hostId.toString(),
+          10.00,
+          5.00,
+          1000.00
         ]
       );
 
@@ -45,6 +57,9 @@ const createLobby = async (req, res) => {
         },
         expertiseLevel: lobby.expertise_level,
         password: lobby.lobby_password ? true : false,
+        big_blind: parseFloat(lobby.big_blind || 10).toFixed(2),
+        small_blind: parseFloat(lobby.small_blind || 5).toFixed(2),
+        starting_bank: parseFloat(lobby.starting_bank || 1000).toFixed(2),
         createdAt: new Date(),
       };
 
@@ -59,9 +74,7 @@ const createLobby = async (req, res) => {
     }
   } catch (error) {
     console.error("Error in createLobby:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to create lobby", error: error.message });
+    res.status(500).json({ message: "Failed to create lobby", error: error.message });
   }
 };
 
@@ -274,11 +287,18 @@ const getLobby = async (req, res) => {
         username: lobby.host_username,
       },
       expertiseLevel: lobby.expertise_level,
+      big_blind: parseFloat(lobby.big_blind || 10).toFixed(2),
+      small_blind: parseFloat(lobby.small_blind || 5).toFixed(2),
+      starting_bank: parseFloat(lobby.starting_bank || 1000).toFixed(2),
       players: players.map((player) => ({
         id: player.user_id,
         username: player.username,
       })),
     };
+
+    // Debug logs
+    console.log("Raw lobby data:", lobby);
+    console.log("Formatted lobby data:", formattedLobby);
 
     res.json(formattedLobby);
   } catch (error) {
@@ -468,9 +488,16 @@ const removePlayer = async (req, res) => {
 
 const updateLobbySettings = async (req, res) => {
   const { id: lobbyId } = req.params;
-  const { name, password, locked } = req.body;
+  const { name, password, locked, big_blind, starting_bank } = req.body;
   const userId = req.user.user_id;
   const io = req.app.get("io");
+
+  console.log('LOBBY UPDATE - Received request:', { 
+    lobbyId, 
+    big_blind,
+    starting_bank,
+    body: req.body
+  });
 
   try {
     const connection = await pool.getConnection();
@@ -490,6 +517,10 @@ const updateLobbySettings = async (req, res) => {
       }
 
       const lobby = lobbies[0];
+      console.log('LOBBY UPDATE - Current state:', {
+        big_blind: lobby.big_blind,
+        small_blind: lobby.small_blind
+      });
 
       // Check if user is host
       if (lobby.lobby_owner !== userId) {
@@ -500,21 +531,39 @@ const updateLobbySettings = async (req, res) => {
           .json({ message: "Only hosts can modify lobby settings" });
       }
 
-      // Prepare update values, ensuring no undefined values
+      // Prepare update values
       const updatedName = name || lobby.lobby_name;
       const updatedLocked = locked !== undefined ? locked : lobby.locked;
-      let updatedPassword = lobby.lobby_password; // Keep existing password by default
+      const updatedBigBlind = big_blind !== undefined ? parseFloat(big_blind) : parseFloat(lobby.big_blind);
+      const updatedSmallBlind = updatedBigBlind / 2;
+      const updatedStartingBank = starting_bank !== undefined ? parseFloat(starting_bank) : parseFloat(lobby.starting_bank);
+
+      console.log('LOBBY UPDATE - New values:', {
+        big_blind: updatedBigBlind,
+        small_blind: updatedSmallBlind
+      });
+
+      let updatedPassword = lobby.lobby_password;
 
       // Only update password if it's explicitly provided or set to null
       if (password !== undefined) {
         updatedPassword = password ? await bcrypt.hash(password, 10) : null;
       }
 
-      // Update lobby settings
-      await connection.execute(
-        "UPDATE lobby SET lobby_name = ?, lobby_password = ?, locked = ? WHERE lobby_id = ?",
-        [updatedName, updatedPassword, updatedLocked, lobbyId]
+      // Execute update
+      const updateResult = await connection.execute(
+        `UPDATE lobby 
+         SET lobby_name = ?, 
+             lobby_password = ?, 
+             locked = ?, 
+             big_blind = ?, 
+             small_blind = ?,
+             starting_bank = ?
+         WHERE lobby_id = ?`,
+        [updatedName, updatedPassword, updatedLocked, updatedBigBlind, updatedSmallBlind, updatedStartingBank, lobbyId]
       );
+
+      console.log('LOBBY UPDATE - Update result:', updateResult);
 
       // Get updated lobby info
       const [updatedLobbies] = await connection.execute(
@@ -525,6 +574,11 @@ const updateLobbySettings = async (req, res) => {
         [lobbyId]
       );
 
+      console.log('LOBBY UPDATE - Database values after update:', {
+        big_blind: updatedLobbies[0].big_blind,
+        small_blind: updatedLobbies[0].small_blind
+      });
+
       await connection.commit();
       connection.release();
 
@@ -534,7 +588,12 @@ const updateLobbySettings = async (req, res) => {
         hasPassword: !!updatedLobbies[0].lobby_password,
         locked: updatedLobbies[0].locked,
         expertiseLevel: updatedLobbies[0].expertise_level,
+        big_blind: parseFloat(updatedLobbies[0].big_blind).toFixed(2),
+        small_blind: parseFloat(updatedLobbies[0].small_blind).toFixed(2),
+        starting_bank: parseFloat(updatedLobbies[0].starting_bank).toFixed(2)
       };
+
+      console.log('LOBBY UPDATE - Final response:', updatedLobby);
 
       // Notify all clients in the lobby about the changes
       io.to(lobbyId).emit("lobby settings updated", updatedLobby);

@@ -181,6 +181,14 @@ const Lobby = ({ user }) => {
             <h1 className="text-2xl font-bold text-gray-100 mb-2">
               {lobby.name}
             </h1>
+            <h1 className="text-2xl font-bold text-gray-100 mb-2">
+              Big blind:&nbsp;  
+              <span className="text-gray-400">{lobby.big_blind}</span>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Small blind:&nbsp;  
+              <span className="text-gray-400">{lobby.small_blind}</span>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Starting Bank:&nbsp;
+              <span className="text-gray-400">{lobby.starting_bank}</span>
+            </h1>
             <div className="flex items-center">
               <span className="text-gray-400">Expertise Level:</span>
               <span

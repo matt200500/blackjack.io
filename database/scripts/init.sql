@@ -1,3 +1,11 @@
+DROP TABLE IF EXISTS lobby; -- this is used just to reset the lobby with the new changes
+DROP TABLE IF EXISTS game_rounds;
+DROP TABLE IF EXISTS game_players;
+DROP TABLE IF EXISTS game_state;
+DROP TABLE IF EXISTS game;
+DROP TABLE IF EXISTS lobby;
+DROP TABLE IF EXISTS users;
+
 -- Create users table
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -22,10 +30,11 @@ CREATE TABLE lobby (
     locked BOOLEAN NOT NULL DEFAULT FALSE,
     lobby_owner INT,
     user_ids VARCHAR(255),
-    min_buy_in DECIMAL(10,2) NOT NULL DEFAULT 100.00,
+    min_buy_in DECIMAL(10,2) NOT NULL DEFAULT 20.00,
     max_buy_in DECIMAL(10,2) NOT NULL DEFAULT 1000.00,
-    small_blind DECIMAL(10,2) NOT NULL DEFAULT 1.00,
-    big_blind DECIMAL(10,2) NOT NULL DEFAULT 2.00,
+    small_blind DECIMAL(10,2) NOT NULL DEFAULT 5.00,
+    big_blind DECIMAL(10,2) NOT NULL DEFAULT 10.00,
+    starting_bank DECIMAL(10,2) NOT NULL DEFAULT 1000.00,
     current_game_id INT,
     FOREIGN KEY (lobby_owner) REFERENCES users(user_id) ON DELETE SET NULL
 );
