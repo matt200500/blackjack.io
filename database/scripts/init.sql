@@ -1,13 +1,14 @@
 -- Create users table
 CREATE TABLE users (
-    user_id INT(255) AUTO_INCREMENT PRIMARY KEY,
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     role VARCHAR(255) NOT NULL,
-    wins INT(255) NOT NULL,
-    losses INT(255) NOT NULL,
-    games_played INT(255) NOT NULL,
+    wins INT NOT NULL DEFAULT 0,
+    losses INT NOT NULL DEFAULT 0,
+    games_played INT NOT NULL DEFAULT 0,
+    total_earnings DECIMAL(10,2) NOT NULL DEFAULT 0,
     profile_picture VARCHAR(255)
 );
 
@@ -21,22 +22,86 @@ CREATE TABLE lobby (
     locked BOOLEAN NOT NULL DEFAULT FALSE,
     lobby_owner INT,
     user_ids VARCHAR(255),
-    pot INT(255) DEFAULT 0,
-    big_blind INT(255),
-    small_blind INT(255),
+    min_buy_in DECIMAL(10,2) NOT NULL DEFAULT 100.00,
+    max_buy_in DECIMAL(10,2) NOT NULL DEFAULT 1000.00,
+    small_blind DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+    big_blind DECIMAL(10,2) NOT NULL DEFAULT 2.00,
+    current_game_id INT,
     FOREIGN KEY (lobby_owner) REFERENCES users(user_id) ON DELETE SET NULL
 );
 
--- Create game table
+-- First, drop the existing game table if it exists
+DROP TABLE IF EXISTS game;
+
+-- Create the new game table with poker-specific columns
 CREATE TABLE game (
-    user_id INT,
+    game_id INT AUTO_INCREMENT,
     lobby_id INT,
-    card_1 INT(255),
-    card_2 INT(255),
-    money INT(255) DEFAULT 0,
-    PRIMARY KEY (user_id, lobby_id),
+    user_id INT,
+    money INT DEFAULT 1000,
+    pot INT DEFAULT 0,
+    big_blind INT DEFAULT 0,
+    small_blind INT DEFAULT 0,
+    cards VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    is_folded BOOLEAN DEFAULT FALSE,
+    current_bet INT DEFAULT 0,
+    seat_position INT,
+    PRIMARY KEY (game_id, user_id, lobby_id),
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (lobby_id) REFERENCES lobby(lobby_id) ON DELETE CASCADE
+);
+
+-- Create a new table for tracking game state
+CREATE TABLE game_state (
+    game_id INT PRIMARY KEY AUTO_INCREMENT,
+    lobby_id INT,
+    current_round VARCHAR(50) DEFAULT 'preflop',
+    community_cards VARCHAR(255),
+    current_player_turn INT,
+    dealer_position INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (lobby_id) REFERENCES lobby(lobby_id) ON DELETE CASCADE,
+    FOREIGN KEY (current_player_turn) REFERENCES users(user_id) ON DELETE SET NULL
+);
+
+-- Create game_players table
+CREATE TABLE game_players (
+    game_id INT NOT NULL,
+    user_id INT NOT NULL,
+    seat_position INT NOT NULL,
+    stack_amount DECIMAL(10,2) NOT NULL,
+    current_bet DECIMAL(10,2) NOT NULL DEFAULT 0,
+    folded BOOLEAN NOT NULL DEFAULT FALSE,
+    cards VARCHAR(255), -- Stored as comma-separated card IDs
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    PRIMARY KEY (game_id, user_id),
+    FOREIGN KEY (game_id) REFERENCES game(game_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- Create game_actions table
+CREATE TABLE game_actions (
+    action_id INT AUTO_INCREMENT PRIMARY KEY,
+    game_id INT NOT NULL,
+    user_id INT NOT NULL,
+    action_type VARCHAR(50) NOT NULL, -- fold, check, call, raise, all-in
+    amount DECIMAL(10,2),
+    round VARCHAR(50) NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (game_id) REFERENCES game(game_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- Create game_rounds table
+CREATE TABLE game_rounds (
+    round_id INT AUTO_INCREMENT PRIMARY KEY,
+    game_id INT NOT NULL,
+    round_type VARCHAR(50) NOT NULL, -- preflop, flop, turn, river
+    pot_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (game_id) REFERENCES game(game_id) ON DELETE CASCADE
 );
 
 -- This is the hash of the password "abc123"

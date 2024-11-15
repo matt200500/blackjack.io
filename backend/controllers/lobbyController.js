@@ -554,6 +554,62 @@ const updateLobbySettings = async (req, res) => {
   }
 };
 
+const startGame = async (req, res) => {
+  const lobbyId = req.params.id;
+  const userId = req.user.user_id;
+  const io = req.app.get("io");
+
+  try {
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Check if user is host or admin
+      const [lobby] = await connection.execute(
+        "SELECT lobby_owner, user_ids FROM lobby WHERE lobby_id = ?",
+        [lobbyId]
+      );
+
+      if (lobby[0].lobby_owner !== userId && req.user.role !== "admin") {
+        throw new Error("Only the host or admin can start the game");
+      }
+
+      // Count players in lobby
+      const players = lobby[0].user_ids.split(",");
+      if (players.length < 2 || players.length > 6) {
+        throw new Error("Need 2-6 players to start a game");
+      }
+
+      // Create new game
+      const [result] = await connection.execute(
+        `INSERT INTO game (lobby_id, user_id, money, pot, big_blind, small_blind) 
+         VALUES ${players
+           .map((playerId) => `(${lobbyId}, ${playerId}, 1000, 0, 0, 0)`)
+           .join(", ")}`
+      );
+
+      // Update lobby to mark game as started
+      await connection.execute(
+        "UPDATE lobby SET is_open = FALSE WHERE lobby_id = ?",
+        [lobbyId]
+      );
+
+      await connection.commit();
+      console.log(`Emitting game started event to lobby ${lobbyId}`);
+      io.to(lobbyId).emit("game started");
+      res.status(200).json({ success: true });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Error starting game:", error);
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createLobby,
   getLobbies,
@@ -562,4 +618,5 @@ module.exports = {
   leaveLobby,
   removePlayer,
   updateLobbySettings,
+  startGame,
 };

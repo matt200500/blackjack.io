@@ -9,6 +9,7 @@ const {
   leaveLobby,
   removePlayer,
   updateLobbySettings,
+  startGame,
 } = require("../controllers/lobbyController");
 
 router.post("/create", protect, createLobby);
@@ -18,5 +19,6 @@ router.post("/join/:id", protect, joinLobby);
 router.post("/leave/:id", protect, leaveLobby);
 router.post("/:id/remove-player", protect, removePlayer);
 router.put("/:id/settings", protect, updateLobbySettings);
+router.post("/:id/start-game", protect, startGame);
 
 module.exports = router;

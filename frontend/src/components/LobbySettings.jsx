@@ -10,6 +10,8 @@ import {
 
 const LobbySettings = ({ lobby, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [name, setName] = useState(lobby?.name || "");
   const [password, setPassword] = useState("");
   const [locked, setLocked] = useState(lobby?.locked || false);
@@ -19,6 +21,16 @@ const LobbySettings = ({ lobby, onUpdate }) => {
     setName(lobby?.name || "");
     setLocked(lobby?.locked || false);
   }, [lobby]);
+
+  useEffect(() => {
+    if (isEditing) {
+      setIsMounted(true);
+      setTimeout(() => setIsVisible(true), 50);
+    } else {
+      setIsVisible(false);
+      setTimeout(() => setIsMounted(false), 500);
+    }
+  }, [isEditing]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -42,7 +54,7 @@ const LobbySettings = ({ lobby, onUpdate }) => {
     }
   };
 
-  if (!isEditing) {
+  if (!isMounted) {
     return (
       <button
         onClick={() => setIsEditing(true)}
@@ -55,7 +67,11 @@ const LobbySettings = ({ lobby, onUpdate }) => {
   }
 
   return (
-    <div className="bg-gray-700/50 rounded-lg shadow-lg border border-gray-600">
+    <div
+      className={`bg-gray-700/50 rounded-lg shadow-lg border border-gray-600 overflow-hidden transition-all duration-500 ease-out ${
+        isVisible ? "opacity-100 max-h-[600px]" : "opacity-0 max-h-0"
+      }`}
+    >
       <div className="p-4 border-b border-gray-600">
         <h3 className="text-xl font-bold text-gray-100">Lobby Settings</h3>
       </div>

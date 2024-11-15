@@ -5,6 +5,7 @@ import ErrorMessage from "../components/ErrorMessage";
 import axiosInstance from "../utils/axiosInstance";
 import io from "socket.io-client";
 import LobbySettings from "../components/LobbySettings";
+import Game from "../components/Game";
 
 const Lobby = ({ user }) => {
   const { id } = useParams();
@@ -13,6 +14,8 @@ const Lobby = ({ user }) => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const socketRef = useRef();
+  const [gameStarted, setGameStarted] = useState(false);
+  const [gameError, setGameError] = useState("");
 
   const handleLobbyUpdate = useCallback((updatedLobby) => {
     setLobby((prevLobby) => ({
@@ -77,6 +80,11 @@ const Lobby = ({ user }) => {
       }));
     });
 
+    socketRef.current.on("game started", () => {
+      console.log("Game started event received");
+      setGameStarted(true);
+    });
+
     // Join the lobby after setting up listeners
     socketRef.current.emit("join lobby", id);
 
@@ -100,6 +108,7 @@ const Lobby = ({ user }) => {
       socketRef.current.off("lobby settings updated");
       socketRef.current.emit("leave lobby", id);
       socketRef.current.disconnect();
+      socketRef.current.off("game started");
     };
   }, [id, navigate, user.id, fetchLobby, lobby?.host?.id]);
 
@@ -129,6 +138,24 @@ const Lobby = ({ user }) => {
       );
       setError("Failed to remove player");
       setTimeout(() => setError(""), 3000);
+    }
+  };
+
+  const startGame = async () => {
+    if (players.length < 2 || players.length > 6) {
+      setGameError("Need 2-6 players to start the game");
+      setTimeout(() => setGameError(""), 3000);
+      return;
+    }
+
+    try {
+      const response = await axiosInstance.post(`/lobbies/${id}/start-game`);
+      setGameStarted(true);
+      setGameError("");
+    } catch (error) {
+      console.error("Failed to start game:", error);
+      setGameError(error.response?.data?.message || "Failed to start game");
+      setTimeout(() => setGameError(""), 3000);
     }
   };
 
@@ -173,8 +200,32 @@ const Lobby = ({ user }) => {
             onClick={leaveLobby}
             className="bg-red-500/80 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors duration-200 font-medium"
           >
-            Leave Lobby
+            Leave
           </button>
+        </div>
+
+        {/* Game Section */}
+        <div className="mb-6">
+          {gameError && (
+            <div className="mb-4">
+              <ErrorMessage message={gameError} />
+            </div>
+          )}
+
+          {!gameStarted ? (
+            <div className="flex justify-center">
+              {(user.role === "host" || user.role === "admin") && (
+                <button
+                  onClick={startGame}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200"
+                >
+                  Start Game
+                </button>
+              )}
+            </div>
+          ) : (
+            <Game players={players} lobby={lobby} />
+          )}
         </div>
 
         {/* Settings Section (if host/admin) */}

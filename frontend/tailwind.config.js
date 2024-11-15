@@ -18,4 +18,9 @@ export default {
     },
   },
   plugins: [require("tailwind-scrollbar")],
+  variants: {
+    extend: {
+      display: ["portrait", "landscape"],
+    },
+  },
 };
