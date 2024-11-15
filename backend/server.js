@@ -40,11 +40,18 @@ app.use("/api/lobbies", lobbyRoutes);
 
 // Socket.IO event handlers
 io.on("connection", (socket) => {
-  console.log("A user connected");
+  console.log("A user connected:", socket.id);
 
   socket.on("join lobby", (lobbyId) => {
-    console.log(`User joined lobby: ${lobbyId}`);
+    console.log(`Socket ${socket.id} joining lobby: ${lobbyId}`);
     socket.join(lobbyId);
+
+    // Log all sockets in this room
+    const sockets = io.sockets.adapter.rooms.get(lobbyId);
+    console.log(
+      `Current sockets in lobby ${lobbyId}:`,
+      Array.from(sockets || [])
+    );
   });
 
   socket.on("leave lobby", (lobbyId) => {
@@ -63,7 +70,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("User disconnected");
+    console.log("User disconnected:", socket.id);
   });
 });
 

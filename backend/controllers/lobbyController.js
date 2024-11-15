@@ -28,9 +28,9 @@ const createLobby = async (req, res) => {
           expertiseLevel,
           hostId,
           hostId.toString(),
-          10.00,
-          5.00,
-          1000.00
+          10.0,
+          5.0,
+          1000.0,
         ]
       );
 
@@ -74,7 +74,9 @@ const createLobby = async (req, res) => {
     }
   } catch (error) {
     console.error("Error in createLobby:", error);
-    res.status(500).json({ message: "Failed to create lobby", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to create lobby", error: error.message });
   }
 };
 
@@ -311,82 +313,44 @@ const getLobby = async (req, res) => {
 };
 
 const leaveLobby = async (req, res) => {
-  const { id: lobbyId } = req.params;
+  const lobbyId = req.params.id;
   const userId = req.user.user_id;
-  const io = req.app.get("io");
 
   try {
     const connection = await pool.getConnection();
     await connection.beginTransaction();
 
     try {
-      // Get lobby
-      const [lobbies] = await connection.execute(
-        "SELECT * FROM lobby WHERE lobby_id = ?",
+      // Get current lobby state
+      const [lobby] = await connection.execute(
+        "SELECT user_ids, lobby_owner FROM lobby WHERE lobby_id = ?",
         [lobbyId]
       );
 
-      if (lobbies.length === 0) {
-        await connection.rollback();
-        connection.release();
-        return res.status(404).json({ message: "Lobby not found" });
+      if (!lobby.length) {
+        throw new Error("Lobby not found");
       }
 
-      const lobby = lobbies[0];
+      let userIds = lobby[0].user_ids.split(",");
+      userIds = userIds.filter((id) => id !== userId.toString());
 
-      // If user is host, delete the lobby
-      if (lobby.lobby_owner === userId) {
-        await connection.execute("DELETE FROM lobby WHERE lobby_id = ?", [
-          lobbyId,
-        ]);
-        await connection.commit();
-        connection.release();
-
-        io.to(lobbyId).emit("host left lobby", { lobbyId });
-        return res.json({ message: "Lobby deleted successfully" });
-      }
-
-      // Otherwise, remove user from user_ids
-      const userIds = lobby.user_ids ? lobby.user_ids.split(",") : [];
-      const updatedUserIds = userIds.filter((id) => id !== userId.toString());
-
+      // Update lobby
       await connection.execute(
         "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
-        [updatedUserIds.join(","), lobbyId]
+        [userIds.join(","), lobbyId]
       );
 
-      // Get updated player information
-      const [players] =
-        updatedUserIds.length > 0
-          ? await connection.execute(
-              `SELECT user_id, username FROM users WHERE user_id IN (${updatedUserIds
-                .map(() => "?")
-                .join(",")})`,
-              updatedUserIds
-            )
-          : [[]];
-
       await connection.commit();
-      connection.release();
-
-      io.to(lobbyId).emit("player left", {
-        players: players.map((player) => ({
-          id: player.user_id,
-          username: player.username,
-        })),
-      });
-
-      res.json({ message: "Left lobby successfully" });
+      res.status(200).json({ message: "Successfully left lobby" });
     } catch (error) {
       await connection.rollback();
-      connection.release();
       throw error;
+    } finally {
+      connection.release();
     }
   } catch (error) {
-    console.error("Error in leaveLobby:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to leave lobby", error: error.message });
+    console.error("Error leaving lobby:", error);
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -492,11 +456,11 @@ const updateLobbySettings = async (req, res) => {
   const userId = req.user.user_id;
   const io = req.app.get("io");
 
-  console.log('LOBBY UPDATE - Received request:', { 
-    lobbyId, 
+  console.log("LOBBY UPDATE - Received request:", {
+    lobbyId,
     big_blind,
     starting_bank,
-    body: req.body
+    body: req.body,
   });
 
   try {
@@ -517,9 +481,9 @@ const updateLobbySettings = async (req, res) => {
       }
 
       const lobby = lobbies[0];
-      console.log('LOBBY UPDATE - Current state:', {
+      console.log("LOBBY UPDATE - Current state:", {
         big_blind: lobby.big_blind,
-        small_blind: lobby.small_blind
+        small_blind: lobby.small_blind,
       });
 
       // Check if user is host
@@ -534,13 +498,19 @@ const updateLobbySettings = async (req, res) => {
       // Prepare update values
       const updatedName = name || lobby.lobby_name;
       const updatedLocked = locked !== undefined ? locked : lobby.locked;
-      const updatedBigBlind = big_blind !== undefined ? parseFloat(big_blind) : parseFloat(lobby.big_blind);
+      const updatedBigBlind =
+        big_blind !== undefined
+          ? parseFloat(big_blind)
+          : parseFloat(lobby.big_blind);
       const updatedSmallBlind = updatedBigBlind / 2;
-      const updatedStartingBank = starting_bank !== undefined ? parseFloat(starting_bank) : parseFloat(lobby.starting_bank);
+      const updatedStartingBank =
+        starting_bank !== undefined
+          ? parseFloat(starting_bank)
+          : parseFloat(lobby.starting_bank);
 
-      console.log('LOBBY UPDATE - New values:', {
+      console.log("LOBBY UPDATE - New values:", {
         big_blind: updatedBigBlind,
-        small_blind: updatedSmallBlind
+        small_blind: updatedSmallBlind,
       });
 
       let updatedPassword = lobby.lobby_password;
@@ -560,10 +530,18 @@ const updateLobbySettings = async (req, res) => {
              small_blind = ?,
              starting_bank = ?
          WHERE lobby_id = ?`,
-        [updatedName, updatedPassword, updatedLocked, updatedBigBlind, updatedSmallBlind, updatedStartingBank, lobbyId]
+        [
+          updatedName,
+          updatedPassword,
+          updatedLocked,
+          updatedBigBlind,
+          updatedSmallBlind,
+          updatedStartingBank,
+          lobbyId,
+        ]
       );
 
-      console.log('LOBBY UPDATE - Update result:', updateResult);
+      console.log("LOBBY UPDATE - Update result:", updateResult);
 
       // Get updated lobby info
       const [updatedLobbies] = await connection.execute(
@@ -574,9 +552,9 @@ const updateLobbySettings = async (req, res) => {
         [lobbyId]
       );
 
-      console.log('LOBBY UPDATE - Database values after update:', {
+      console.log("LOBBY UPDATE - Database values after update:", {
         big_blind: updatedLobbies[0].big_blind,
-        small_blind: updatedLobbies[0].small_blind
+        small_blind: updatedLobbies[0].small_blind,
       });
 
       await connection.commit();
@@ -590,10 +568,10 @@ const updateLobbySettings = async (req, res) => {
         expertiseLevel: updatedLobbies[0].expertise_level,
         big_blind: parseFloat(updatedLobbies[0].big_blind).toFixed(2),
         small_blind: parseFloat(updatedLobbies[0].small_blind).toFixed(2),
-        starting_bank: parseFloat(updatedLobbies[0].starting_bank).toFixed(2)
+        starting_bank: parseFloat(updatedLobbies[0].starting_bank).toFixed(2),
       };
 
-      console.log('LOBBY UPDATE - Final response:', updatedLobby);
+      console.log("LOBBY UPDATE - Final response:", updatedLobby);
 
       // Notify all clients in the lobby about the changes
       io.to(lobbyId).emit("lobby settings updated", updatedLobby);
@@ -619,50 +597,61 @@ const startGame = async (req, res) => {
   const io = req.app.get("io");
 
   try {
-    const connection = await pool.getConnection();
-    await connection.beginTransaction();
+    const [lobby] = await pool.execute(
+      "SELECT lobby_owner, user_ids FROM lobby WHERE lobby_id = ?",
+      [lobbyId]
+    );
 
-    try {
-      // Check if user is host or admin
-      const [lobby] = await connection.execute(
-        "SELECT lobby_owner, user_ids FROM lobby WHERE lobby_id = ?",
-        [lobbyId]
-      );
-
-      if (lobby[0].lobby_owner !== userId && req.user.role !== "admin") {
-        throw new Error("Only the host or admin can start the game");
-      }
-
-      // Count players in lobby
-      const players = lobby[0].user_ids.split(",");
-      if (players.length < 2 || players.length > 6) {
-        throw new Error("Need 2-6 players to start a game");
-      }
-
-      // Create new game
-      const [result] = await connection.execute(
-        `INSERT INTO game (lobby_id, user_id, money, pot, big_blind, small_blind) 
-         VALUES ${players
-           .map((playerId) => `(${lobbyId}, ${playerId}, 1000, 0, 0, 0)`)
-           .join(", ")}`
-      );
-
-      // Update lobby to mark game as started
-      await connection.execute(
-        "UPDATE lobby SET is_open = FALSE WHERE lobby_id = ?",
-        [lobbyId]
-      );
-
-      await connection.commit();
-      console.log(`Emitting game started event to lobby ${lobbyId}`);
-      io.to(lobbyId).emit("game started");
-      res.status(200).json({ success: true });
-    } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
+    if (!lobby.length) {
+      throw new Error("Lobby not found");
     }
+
+    const players = lobby[0].user_ids.split(",");
+    console.log("Starting game with players:", players);
+
+    // Calculate positions
+    const buttonPosition = Math.floor(Math.random() * players.length);
+    const smallBlindPosition = (buttonPosition + 1) % players.length;
+    const bigBlindPosition = (buttonPosition + 2) % players.length;
+    const firstToAct = (bigBlindPosition + 1) % players.length;
+
+    const gameState = {
+      buttonPosition,
+      smallBlindPosition,
+      bigBlindPosition,
+      currentTurn: firstToAct,
+    };
+
+    console.log("Game state to broadcast:", gameState);
+
+    // Log room info before emit
+    const room = io.sockets.adapter.rooms.get(lobbyId.toString());
+    console.log(
+      `Broadcasting to lobby ${lobbyId}, connected sockets:`,
+      Array.from(room || [])
+    );
+
+    // Broadcast to room
+    io.to(lobbyId.toString()).emit("game started", gameState);
+
+    // Store game state in database
+    const [result] = await pool.execute(
+      `INSERT INTO game_state (
+        lobby_id, 
+        button_position, 
+        current_player_turn,
+        current_round
+      ) VALUES (?, ?, ?, ?)`,
+      [lobbyId, buttonPosition, firstToAct, "preflop"]
+    );
+
+    // Update lobby status
+    await pool.execute(
+      "UPDATE lobby SET game_started = TRUE, current_game_id = ? WHERE lobby_id = ?",
+      [result.insertId, lobbyId]
+    );
+
+    res.status(200).json({ success: true, gameState });
   } catch (error) {
     console.error("Error starting game:", error);
     res.status(400).json({ message: error.message });
