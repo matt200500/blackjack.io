@@ -28,9 +28,9 @@ const createLobby = async (req, res) => {
           expertiseLevel,
           hostId,
           hostId.toString(),
-          10.0,
-          5.0,
-          1000.0,
+          10,
+          5,
+          1000,
         ]
       );
 
@@ -57,9 +57,9 @@ const createLobby = async (req, res) => {
         },
         expertiseLevel: lobby.expertise_level,
         password: lobby.lobby_password ? true : false,
-        big_blind: parseFloat(lobby.big_blind || 10).toFixed(2),
-        small_blind: parseFloat(lobby.small_blind || 5).toFixed(2),
-        starting_bank: parseFloat(lobby.starting_bank || 1000).toFixed(2),
+        big_blind: lobby.big_blind || 10,
+        small_blind: lobby.small_blind || 5,
+        starting_bank: lobby.starting_bank || 1000,
         createdAt: new Date(),
       };
 
@@ -289,9 +289,9 @@ const getLobby = async (req, res) => {
         username: lobby.host_username,
       },
       expertiseLevel: lobby.expertise_level,
-      big_blind: parseFloat(lobby.big_blind || 10).toFixed(2),
-      small_blind: parseFloat(lobby.small_blind || 5).toFixed(2),
-      starting_bank: parseFloat(lobby.starting_bank || 1000).toFixed(2),
+      big_blind: lobby.big_blind || 10,
+      small_blind: lobby.small_blind || 5,
+      starting_bank: lobby.starting_bank || 1000,
       players: players.map((player) => ({
         id: player.user_id,
         username: player.username,
@@ -486,7 +486,7 @@ const removePlayer = async (req, res) => {
 
 const updateLobbySettings = async (req, res) => {
   const { id: lobbyId } = req.params;
-  const { name, password, locked, big_blind, starting_bank } = req.body;
+  const { name, password, locked, big_blind, starting_bank, expertiseLevel } = req.body;
   const userId = req.user.user_id;
   const io = req.app.get("io");
 
@@ -533,14 +533,11 @@ const updateLobbySettings = async (req, res) => {
       const updatedName = name || lobby.lobby_name;
       const updatedLocked = locked !== undefined ? locked : lobby.locked;
       const updatedBigBlind =
-        big_blind !== undefined
-          ? parseFloat(big_blind)
-          : parseFloat(lobby.big_blind);
-      const updatedSmallBlind = updatedBigBlind / 2;
+        big_blind !== undefined ? parseInt(big_blind) : lobby.big_blind;
+      const updatedSmallBlind = Math.ceil(updatedBigBlind / 2);
       const updatedStartingBank =
-        starting_bank !== undefined
-          ? parseFloat(starting_bank)
-          : parseFloat(lobby.starting_bank);
+        starting_bank !== undefined ? parseInt(starting_bank) : lobby.starting_bank;
+      const updatedExpertiseLevel = expertiseLevel || lobby.expertise_level;
 
       console.log("LOBBY UPDATE - New values:", {
         big_blind: updatedBigBlind,
@@ -562,7 +559,8 @@ const updateLobbySettings = async (req, res) => {
              locked = ?, 
              big_blind = ?, 
              small_blind = ?,
-             starting_bank = ?
+             starting_bank = ?,
+             expertise_level = ?
          WHERE lobby_id = ?`,
         [
           updatedName,
@@ -571,6 +569,7 @@ const updateLobbySettings = async (req, res) => {
           updatedBigBlind,
           updatedSmallBlind,
           updatedStartingBank,
+          updatedExpertiseLevel,
           lobbyId,
         ]
       );
@@ -600,9 +599,9 @@ const updateLobbySettings = async (req, res) => {
         hasPassword: !!updatedLobbies[0].lobby_password,
         locked: updatedLobbies[0].locked,
         expertiseLevel: updatedLobbies[0].expertise_level,
-        big_blind: parseFloat(updatedLobbies[0].big_blind).toFixed(2),
-        small_blind: parseFloat(updatedLobbies[0].small_blind).toFixed(2),
-        starting_bank: parseFloat(updatedLobbies[0].starting_bank).toFixed(2),
+        big_blind: updatedLobbies[0].big_blind,
+        small_blind: updatedLobbies[0].small_blind,
+        starting_bank: updatedLobbies[0].starting_bank,
       };
 
       console.log("LOBBY UPDATE - Final response:", updatedLobby);

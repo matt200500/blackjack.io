@@ -16,7 +16,7 @@ CREATE TABLE users (
     wins INT NOT NULL DEFAULT 0,
     losses INT NOT NULL DEFAULT 0,
     games_played INT NOT NULL DEFAULT 0,
-    total_earnings DECIMAL(10,2) NOT NULL DEFAULT 0,
+    total_earnings INT NOT NULL DEFAULT 0,
     profile_picture VARCHAR(255)
 );
 
@@ -28,7 +28,7 @@ CREATE TABLE game_state (
     current_player_turn INT NOT NULL,
     current_round VARCHAR(50) NOT NULL,  -- preflop, flop, turn, river
     community_cards VARCHAR(255),        -- Stored as comma-separated card IDs
-    pot DECIMAL(10,2) DEFAULT 0,
+    pot INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -42,9 +42,9 @@ CREATE TABLE lobby (
     user_ids TEXT,
     is_open BOOLEAN DEFAULT TRUE,
     locked BOOLEAN DEFAULT FALSE,
-    big_blind DECIMAL(10,2) DEFAULT 10.0,
-    small_blind DECIMAL(10,2) DEFAULT 5.0,
-    starting_bank DECIMAL(10,2) DEFAULT 1000.0,
+    big_blind INT NOT NULL DEFAULT 10,
+    small_blind INT NOT NULL DEFAULT 5,
+    starting_bank INT NOT NULL DEFAULT 1000,
     game_started BOOLEAN DEFAULT FALSE,
     current_game_id INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -61,8 +61,8 @@ CREATE TABLE game_players (
     game_id INT NOT NULL,
     user_id INT NOT NULL,
     seat_position INT NOT NULL,
-    stack_amount DECIMAL(10,2) NOT NULL,
-    current_bet DECIMAL(10,2) NOT NULL DEFAULT 0,
+    stack_amount INT NOT NULL,
+    current_bet INT NOT NULL DEFAULT 0,
     folded BOOLEAN NOT NULL DEFAULT FALSE,
     cards VARCHAR(255),                  -- Stored as comma-separated card IDs
     is_small_blind BOOLEAN NOT NULL DEFAULT FALSE,
@@ -79,7 +79,7 @@ CREATE TABLE game_actions (
     game_id INT NOT NULL,
     user_id INT NOT NULL,
     action_type VARCHAR(50) NOT NULL,    -- fold, check, call, raise, all-in
-    amount DECIMAL(10,2),
+    amount INT,
     round VARCHAR(50) NOT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (game_id) REFERENCES game_state(game_id) ON DELETE CASCADE,

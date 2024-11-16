@@ -19,6 +19,7 @@ const LobbySettings = ({ lobby, onUpdate }) => {
   const [big_blind, setBigBlind] = useState(lobby?.big_blind || "");
   const [small_blind, setSmallBlind] = useState(lobby?.small_blind || "");
   const [starting_bank, setStartingBank] = useState(lobby?.starting_bank || "");
+  const [expertiseLevel, setExpertiseLevel] = useState(lobby?.expertiseLevel || "");
 
   useEffect(() => {
     console.log("Lobby prop:", lobby);
@@ -26,12 +27,13 @@ const LobbySettings = ({ lobby, onUpdate }) => {
     setBigBlind(lobby?.big_blind || "");
     setSmallBlind(lobby?.small_blind || "");
     setStartingBank(lobby?.starting_bank || "");
+    setExpertiseLevel(lobby?.expertiseLevel || "");
     setLocked(lobby?.locked || false);
   }, [lobby]);
 
   useEffect(() => {
     if (big_blind) {
-      setSmallBlind(Number(big_blind) / 2);
+      setSmallBlind(Math.ceil(Number(big_blind) / 2));
     }
   }, [big_blind]);
 
@@ -56,6 +58,7 @@ const LobbySettings = ({ lobby, onUpdate }) => {
           big_blind,
           small_blind,
           starting_bank,
+          expertiseLevel, 
           locked,
         }
       );
@@ -85,7 +88,7 @@ const LobbySettings = ({ lobby, onUpdate }) => {
   return (
     <div
       className={`bg-gray-700/50 rounded-lg shadow-lg border border-gray-600 overflow-hidden transition-all duration-500 ease-out ${
-        isVisible ? "opacity-100 max-h-[600px]" : "opacity-0 max-h-0"
+        isVisible ? "opacity-100 max-h-[800px]" : "opacity-0 max-h-0"
       }`}
     >
       <div className="p-4 border-b border-gray-600">
@@ -198,6 +201,21 @@ const LobbySettings = ({ lobby, onUpdate }) => {
             className="w-full p-2.5 rounded bg-gray-800/50 text-white placeholder-gray-400 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors duration-200"
             required
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">
+            Expertise Level
+          </label>
+            <select
+              value={expertiseLevel}
+              onChange={(e) => setExpertiseLevel(e.target.value)}
+              className="p-2 rounded bg-gray-700/50 text-white border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="expert">Expert</option>
+            </select>
         </div>
 
         <div className="flex items-center">
