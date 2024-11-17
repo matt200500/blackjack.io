@@ -6,6 +6,7 @@ const Game = ({ players, lobby, user }) => {
   const [seats, setSeats] = useState(Array(6).fill(null));
   const [error, setError] = useState("");
   const [gameState, setGameState] = useState(null);
+  const [betAmount, setBetAmount] = useState(0);
 
   const socketRef = useRef();
 
@@ -101,6 +102,60 @@ const Game = ({ players, lobby, user }) => {
     setSeats(newSeats);
   }, [players]);
 
+  const handleAction = (actionType, amount = null) => {
+    if (!socketRef.current || !gameState) return;
+
+    console.log(`Player ${user.username} attempting ${actionType}`, amount);
+    socketRef.current.emit('player_action', {
+      action: actionType,
+      amount: amount,
+      gameId: gameState.gameId,
+      userId: user.user_id
+    });
+  };
+
+  const renderActionButtons = () => {
+    // Only show buttons if it's the current player's turn
+    const currentPlayerIndex = seats.findIndex(seat => seat?.user_id === user.user_id);
+    const isPlayerTurn = gameState?.currentTurn === currentPlayerIndex;
+
+    if (!isPlayerTurn) {
+      return null;
+    }
+
+    return (
+      <div className="fixed bottom-2 right-4 flex gap-2 z-50 bg-gray-800/90 p-4 rounded-lg shadow-xl">
+        <button
+          onClick={() => handleAction('fold')}
+          className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-lg transition-colors"
+        >
+          Fold
+        </button>
+        
+        <button
+          onClick={() => handleAction('call')}
+          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg transition-colors"
+        >
+          Call
+        </button>
+
+        <input
+          type="number"
+          value={betAmount}
+          onChange={(e) => setBetAmount(Math.max(0, parseInt(e.target.value) || 0))}
+          className="w-24 px-3 py-2 bg-gray-700 text-white rounded-lg"
+          placeholder="Bet amount"
+        />
+        <button
+          onClick={() => handleAction('raise', betAmount)}
+          className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg transition-colors"
+        >
+          Raise
+        </button>
+      </div>
+    );
+  };
+
   // Debug render
   if (gameState) {
     console.log("Rendering with game state:", gameState);
@@ -151,11 +206,32 @@ const Game = ({ players, lobby, user }) => {
       <div className="relative w-full aspect-[16/9] max-w-7xl bg-green-800/90 rounded-xl border-4 border-gray-800 overflow-hidden portrait:hidden landscape:block">
         {/* Poker Table */}
         <div className="absolute inset-8 sm:inset-12 md:inset-16 bg-green-700/80 rounded-[100%] border-4 sm:border-6 md:border-8 border-gray-800">
-          {/* Center pot area */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
-            <span className="text-white text-sm sm:text-base md:text-lg font-bold whitespace-nowrap">
-              Pot: $0
-            </span>
+          {/* Center pot and cards area */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-4">
+            {/* Community Cards */}
+            <div className="flex gap-2">
+              {gameState?.communityCards?.map((card, index) => (
+                <div
+                  key={index}
+                  className="w-10 h-14 sm:w-12 sm:h-16 md:w-14 md:h-20 bg-white rounded-lg shadow-lg flex items-center justify-center"
+                >
+                  {card ? (
+                    <span className={`text-${card.suit === '♥' || card.suit === '♦' ? 'red' : 'black'}-600 font-bold`}>
+                      {card.rank}{card.suit}
+                    </span>
+                  ) : (
+                    <div className="w-full h-full bg-blue-800 rounded-lg" /> // Card back
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            {/* Pot Amount */}
+            <div className="bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
+              <span className="text-white text-sm sm:text-base md:text-lg font-bold whitespace-nowrap">
+                Pot: ${gameState?.pot || 0}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -246,7 +322,9 @@ const Game = ({ players, lobby, user }) => {
                   <span className="text-white font-medium text-sm truncate max-w-[90%]">
                     {player.username}
                   </span>
-                  <span className="text-gray-400 text-xs">$1000</span>
+                  <span className="text-gray-400 text-xs">
+                    ${player.money_amount}
+                  </span>
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-full">
@@ -257,6 +335,9 @@ const Game = ({ players, lobby, user }) => {
           );
         })}
       </div>
+
+      {/* Action buttons outside the table */}
+      {renderActionButtons()}
     </div>
   );
 };

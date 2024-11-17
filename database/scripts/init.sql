@@ -61,6 +61,7 @@ CREATE TABLE game_players (
     game_id INT NOT NULL,
     user_id INT NOT NULL,
     seat_position INT NOT NULL,
+    money_amount INT NOT NULL,
     stack_amount INT NOT NULL,
     current_bet INT NOT NULL DEFAULT 0,
     folded BOOLEAN NOT NULL DEFAULT FALSE,
