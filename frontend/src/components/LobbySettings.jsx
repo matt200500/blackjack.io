@@ -16,26 +16,18 @@ const LobbySettings = ({ lobby, onUpdate }) => {
   const [password, setPassword] = useState("");
   const [locked, setLocked] = useState(lobby?.locked || false);
   const [error, setError] = useState("");
-  const [big_blind, setBigBlind] = useState(lobby?.big_blind || "");
-  const [small_blind, setSmallBlind] = useState(lobby?.small_blind || "");
   const [starting_bank, setStartingBank] = useState(lobby?.starting_bank || "");
-  const [expertiseLevel, setExpertiseLevel] = useState(lobby?.expertiseLevel || "");
+  const [expertiseLevel, setExpertiseLevel] = useState(
+    lobby?.expertiseLevel || ""
+  );
 
   useEffect(() => {
     console.log("Lobby prop:", lobby);
     setName(lobby?.name || "");
-    setBigBlind(lobby?.big_blind || "");
-    setSmallBlind(lobby?.small_blind || "");
     setStartingBank(lobby?.starting_bank || "");
     setExpertiseLevel(lobby?.expertiseLevel || "");
     setLocked(lobby?.locked || false);
   }, [lobby]);
-
-  useEffect(() => {
-    if (big_blind) {
-      setSmallBlind(Math.ceil(Number(big_blind) / 2));
-    }
-  }, [big_blind]);
 
   useEffect(() => {
     if (isEditing) {
@@ -55,10 +47,8 @@ const LobbySettings = ({ lobby, onUpdate }) => {
         {
           name,
           password: password || null,
-          big_blind,
-          small_blind,
           starting_bank,
-          expertiseLevel, 
+          expertiseLevel,
           locked,
         }
       );
@@ -139,45 +129,6 @@ const LobbySettings = ({ lobby, onUpdate }) => {
 
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-1.5">
-            Big Blind
-            <span className="text-gray-400 ml-1 font-normal">
-              (minimum value is 10)
-            </span>
-          </label>
-          <input
-            type="text"
-            pattern="[0-9]*"
-            inputMode="numeric"
-            min="10"
-            value={big_blind}
-            onBlur={(e) => {
-              const value = Number(e.target.value);
-              if (value < 10) setBigBlind(10);
-            }}
-            onChange={(e) => {
-              if (e.target.value === '' || /^[0-9]+$/.test(e.target.value)) {
-                setBigBlind(Number(e.target.value));
-              }
-            }}
-            className="w-full p-2.5 rounded bg-gray-800/50 text-white placeholder-gray-400 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors duration-200"
-            required
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1.5">
-            Small Blind (automatically set to half of Big Blind)
-          </label>
-          <input
-            type="text"
-            value={small_blind}
-            readOnly
-            className="w-full p-2.5 rounded bg-gray-700/50 text-gray-400 border border-gray-600 cursor-not-allowed"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1.5">
             Starting Bank
             <span className="text-gray-400 ml-1 font-normal">
               (minimum value is 1000)
@@ -194,7 +145,7 @@ const LobbySettings = ({ lobby, onUpdate }) => {
               if (value < 1000) setStartingBank(1000);
             }}
             onChange={(e) => {
-              if (e.target.value === '' || /^[0-9]+$/.test(e.target.value)) {
+              if (e.target.value === "" || /^[0-9]+$/.test(e.target.value)) {
                 setStartingBank(Number(e.target.value));
               }
             }}
@@ -207,15 +158,15 @@ const LobbySettings = ({ lobby, onUpdate }) => {
           <label className="block text-sm font-medium text-gray-300 mb-1.5">
             Expertise Level
           </label>
-            <select
-              value={expertiseLevel}
-              onChange={(e) => setExpertiseLevel(e.target.value)}
-              className="p-2 rounded bg-gray-700/50 text-white border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="expert">Expert</option>
-            </select>
+          <select
+            value={expertiseLevel}
+            onChange={(e) => setExpertiseLevel(e.target.value)}
+            className="p-2 rounded bg-gray-700/50 text-white border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="expert">Expert</option>
+          </select>
         </div>
 
         <div className="flex items-center">

@@ -24,11 +24,9 @@ CREATE TABLE users (
 CREATE TABLE game_state (
     game_id INT AUTO_INCREMENT PRIMARY KEY,
     lobby_id INT NOT NULL,
-    button_position INT NOT NULL,
     current_player_turn INT NOT NULL,
-    current_round VARCHAR(50) NOT NULL,  -- preflop, flop, turn, river
-    community_cards VARCHAR(255),        -- Stored as comma-separated card IDs
-    pot INT DEFAULT 0,
+    current_round INT NOT NULL DEFAULT 1,  -- 1 or 2 for the two rounds
+    round_complete BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -42,8 +40,6 @@ CREATE TABLE lobby (
     user_ids TEXT,
     is_open BOOLEAN DEFAULT TRUE,
     locked BOOLEAN DEFAULT FALSE,
-    big_blind INT NOT NULL DEFAULT 10,
-    small_blind INT NOT NULL DEFAULT 5,
     starting_bank INT NOT NULL DEFAULT 1000,
     game_started BOOLEAN DEFAULT FALSE,
     current_game_id INT,
@@ -61,13 +57,10 @@ CREATE TABLE game_players (
     game_id INT NOT NULL,
     user_id INT NOT NULL,
     seat_position INT NOT NULL,
-    stack_amount INT NOT NULL,
-    current_bet INT NOT NULL DEFAULT 0,
-    folded BOOLEAN NOT NULL DEFAULT FALSE,
     cards VARCHAR(255),                  -- Stored as comma-separated card IDs
-    is_small_blind BOOLEAN NOT NULL DEFAULT FALSE,
-    is_big_blind BOOLEAN NOT NULL DEFAULT FALSE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    stepped_back BOOLEAN NOT NULL DEFAULT FALSE,
+    card_total INT,                      -- Running total of cards
     PRIMARY KEY (game_id, user_id),
     FOREIGN KEY (game_id) REFERENCES game_state(game_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
@@ -78,9 +71,8 @@ CREATE TABLE game_actions (
     action_id INT AUTO_INCREMENT PRIMARY KEY,
     game_id INT NOT NULL,
     user_id INT NOT NULL,
-    action_type VARCHAR(50) NOT NULL,    -- fold, check, call, raise, all-in
-    amount INT,
-    round VARCHAR(50) NOT NULL,
+    action_type VARCHAR(50) NOT NULL,    -- hit, step_back
+    round INT NOT NULL,                  -- 1 or 2
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (game_id) REFERENCES game_state(game_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE

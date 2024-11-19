@@ -46,9 +46,6 @@ router.get("/:id/game-state", protect, async (req, res) => {
     if (gameState.length > 0) {
       res.json({
         gameState: {
-          buttonPosition: gameState[0].button_position,
-          smallBlindPosition: (gameState[0].button_position + 1) % playerCount,
-          bigBlindPosition: (gameState[0].button_position + 2) % playerCount,
           currentTurn: gameState[0].current_player_turn,
         },
       });

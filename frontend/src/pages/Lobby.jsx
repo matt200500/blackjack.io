@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import ChatBox from "../components/ChatBox";
+import ChatBox from "../components/Chatbox";
 import ErrorMessage from "../components/ErrorMessage";
 import axiosInstance from "../utils/axiosInstance";
 import io from "socket.io-client";
@@ -182,11 +182,7 @@ const Lobby = ({ user }) => {
               {lobby.name}
             </h1>
             <h1 className="text-2xl font-bold text-gray-100 mb-2">
-              Big blind:&nbsp;
-              <span className="text-gray-400">{lobby.big_blind}</span>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Small blind:&nbsp;
-              <span className="text-gray-400">{lobby.small_blind}</span>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Starting Bank:&nbsp;
+              Starting Bank:&nbsp;
               <span className="text-gray-400">{lobby.starting_bank}</span>
             </h1>
             <div className="flex items-center">

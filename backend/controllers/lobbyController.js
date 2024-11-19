@@ -18,18 +18,14 @@ const createLobby = async (req, res) => {
           expertise_level, 
           lobby_owner, 
           user_ids,
-          big_blind,
-          small_blind,
           starting_bank
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?)`,
         [
           name,
           password ? await bcrypt.hash(password, 10) : null,
           expertiseLevel,
           hostId,
           hostId.toString(),
-          10,
-          5,
           1000,
         ]
       );
@@ -57,8 +53,6 @@ const createLobby = async (req, res) => {
         },
         expertiseLevel: lobby.expertise_level,
         password: lobby.lobby_password ? true : false,
-        big_blind: lobby.big_blind || 10,
-        small_blind: lobby.small_blind || 5,
         starting_bank: lobby.starting_bank || 1000,
         createdAt: new Date(),
       };
@@ -289,8 +283,6 @@ const getLobby = async (req, res) => {
         username: lobby.host_username,
       },
       expertiseLevel: lobby.expertise_level,
-      big_blind: lobby.big_blind || 10,
-      small_blind: lobby.small_blind || 5,
       starting_bank: lobby.starting_bank || 1000,
       players: players.map((player) => ({
         id: player.user_id,
@@ -486,13 +478,12 @@ const removePlayer = async (req, res) => {
 
 const updateLobbySettings = async (req, res) => {
   const { id: lobbyId } = req.params;
-  const { name, password, locked, big_blind, starting_bank, expertiseLevel } = req.body;
+  const { name, password, locked, starting_bank, expertiseLevel } = req.body;
   const userId = req.user.user_id;
   const io = req.app.get("io");
 
   console.log("LOBBY UPDATE - Received request:", {
     lobbyId,
-    big_blind,
     starting_bank,
     body: req.body,
   });
@@ -515,10 +506,7 @@ const updateLobbySettings = async (req, res) => {
       }
 
       const lobby = lobbies[0];
-      console.log("LOBBY UPDATE - Current state:", {
-        big_blind: lobby.big_blind,
-        small_blind: lobby.small_blind,
-      });
+      console.log("LOBBY UPDATE - Current state:", lobby);
 
       // Check if user is host
       if (lobby.lobby_owner !== userId) {
@@ -532,17 +520,13 @@ const updateLobbySettings = async (req, res) => {
       // Prepare update values
       const updatedName = name || lobby.lobby_name;
       const updatedLocked = locked !== undefined ? locked : lobby.locked;
-      const updatedBigBlind =
-        big_blind !== undefined ? parseInt(big_blind) : lobby.big_blind;
-      const updatedSmallBlind = Math.ceil(updatedBigBlind / 2);
       const updatedStartingBank =
-        starting_bank !== undefined ? parseInt(starting_bank) : lobby.starting_bank;
+        starting_bank !== undefined
+          ? parseInt(starting_bank)
+          : lobby.starting_bank;
       const updatedExpertiseLevel = expertiseLevel || lobby.expertise_level;
 
-      console.log("LOBBY UPDATE - New values:", {
-        big_blind: updatedBigBlind,
-        small_blind: updatedSmallBlind,
-      });
+      console.log("LOBBY UPDATE - New values:", updatedStartingBank);
 
       let updatedPassword = lobby.lobby_password;
 
@@ -557,8 +541,6 @@ const updateLobbySettings = async (req, res) => {
          SET lobby_name = ?, 
              lobby_password = ?, 
              locked = ?, 
-             big_blind = ?, 
-             small_blind = ?,
              starting_bank = ?,
              expertise_level = ?
          WHERE lobby_id = ?`,
@@ -566,8 +548,6 @@ const updateLobbySettings = async (req, res) => {
           updatedName,
           updatedPassword,
           updatedLocked,
-          updatedBigBlind,
-          updatedSmallBlind,
           updatedStartingBank,
           updatedExpertiseLevel,
           lobbyId,
@@ -585,10 +565,10 @@ const updateLobbySettings = async (req, res) => {
         [lobbyId]
       );
 
-      console.log("LOBBY UPDATE - Database values after update:", {
-        big_blind: updatedLobbies[0].big_blind,
-        small_blind: updatedLobbies[0].small_blind,
-      });
+      console.log(
+        "LOBBY UPDATE - Database values after update:",
+        updatedLobbies[0]
+      );
 
       await connection.commit();
       connection.release();
@@ -599,8 +579,6 @@ const updateLobbySettings = async (req, res) => {
         hasPassword: !!updatedLobbies[0].lobby_password,
         locked: updatedLobbies[0].locked,
         expertiseLevel: updatedLobbies[0].expertise_level,
-        big_blind: updatedLobbies[0].big_blind,
-        small_blind: updatedLobbies[0].small_blind,
         starting_bank: updatedLobbies[0].starting_bank,
       };
 
@@ -642,16 +620,10 @@ const startGame = async (req, res) => {
     const players = lobby[0].user_ids.split(",");
     console.log("Starting game with players:", players);
 
-    // Calculate positions
-    const buttonPosition = Math.floor(Math.random() * players.length);
-    const smallBlindPosition = (buttonPosition + 1) % players.length;
-    const bigBlindPosition = (buttonPosition + 2) % players.length;
-    const firstToAct = (bigBlindPosition + 1) % players.length;
+    // In Blackjack, we'll start with player at index 0
+    const firstToAct = 0;
 
     const gameState = {
-      buttonPosition,
-      smallBlindPosition,
-      bigBlindPosition,
       currentTurn: firstToAct,
     };
 
@@ -671,11 +643,10 @@ const startGame = async (req, res) => {
     const [result] = await pool.execute(
       `INSERT INTO game_state (
         lobby_id, 
-        button_position, 
         current_player_turn,
         current_round
-      ) VALUES (?, ?, ?, ?)`,
-      [lobbyId, buttonPosition, firstToAct, "preflop"]
+      ) VALUES (?, ?, ?)`,
+      [lobbyId, firstToAct, 1]
     );
 
     // Update lobby status
