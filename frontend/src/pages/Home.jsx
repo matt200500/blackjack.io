@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import axiosInstance from "../utils/axiosInstance";
 import PasswordModal from "../components/PasswordModal";
 import ErrorMessage from "../components/ErrorMessage";
@@ -25,10 +25,16 @@ const Home = ({ user }) => {
   const [includePasswordProtected, setIncludePasswordProtected] =
     useState("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     fetchLobbies();
-  }, [sortBy, sortOrder, includePasswordProtected]);
+  }, [
+    sortBy,
+    sortOrder,
+    includePasswordProtected,
+    location.state?.refreshLobbies,
+  ]);
 
   const fetchLobbies = async () => {
     try {

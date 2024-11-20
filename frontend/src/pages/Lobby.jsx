@@ -58,7 +58,9 @@ const Lobby = ({ user }) => {
     });
 
     socketRef.current.on("player left", (data) => {
-      setPlayers(data.players);
+      setPlayers((prevPlayers) =>
+        prevPlayers.filter((player) => player.id !== data.userId)
+      );
     });
 
     socketRef.current.on("removed from lobby", (data) => {
@@ -114,11 +116,9 @@ const Lobby = ({ user }) => {
 
   const leaveLobby = async () => {
     try {
-      // First navigate away
-      navigate("/");
-
-      // Then cleanup
       await axiosInstance.post(`/lobbies/leave/${id}`);
+      // Fetch updated lobbies after leaving
+      navigate("/", { state: { refreshLobbies: true } });
     } catch (error) {
       console.error(
         "Failed to leave lobby:",
@@ -163,6 +163,8 @@ const Lobby = ({ user }) => {
 
   console.log("Players:", players);
 
+  const canStartGame = players.length >= 2 && players.length <= 6;
+
   if (!lobby) {
     return <div>Loading...</div>;
   }
@@ -180,10 +182,10 @@ const Lobby = ({ user }) => {
         {/* Header Section */}
         <div className="flex justify-between items-start mb-6 pb-6 border-b border-gray-700">
           <div>
-            <h1 className="text-2xl font-bold text-gray-100 mb-2">
+            <h1 className="text-4xl font-bold text-gray-100 mb-2">
               {lobby.name}
             </h1>
-            <h1 className="text-2xl font-bold text-gray-100 mb-2">
+            <h1 className="text-xl font-bold text-gray-100 mb-2">
               Starting Bank:&nbsp;
               <span className="text-gray-400">{lobby.starting_bank}</span>
             </h1>
@@ -226,7 +228,10 @@ const Lobby = ({ user }) => {
                 {(user.role === "host" || user.role === "admin") && (
                   <button
                     onClick={startGame}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200"
+                    disabled={!canStartGame}
+                    className={`px-6 py-2 rounded-lg font-medium transition-colors duration-200 mb-8 text-[#1a1a1a] ${
+                      canStartGame ? "animated-button" : "disabled-button"
+                    }`}
                   >
                     Start Game
                   </button>
@@ -268,17 +273,19 @@ const Lobby = ({ user }) => {
                                 <div className="flex items-center space-x-3">
                                   <div className="w-8 h-8 rounded-full bg-gray-500/50 flex items-center justify-center">
                                     <span className="text-sm font-medium text-gray-200">
-                                      {player.username.charAt(0).toUpperCase()}
+                                      {player?.username
+                                        ?.charAt(0)
+                                        .toUpperCase() || "?"}
                                     </span>
                                   </div>
                                   <span className="text-gray-200 font-medium">
-                                    {player.username}
+                                    {player?.username || "Unknown"}
                                   </span>
                                 </div>
                                 {(user.role === "host" ||
                                   user.role === "admin") && (
                                   <button
-                                    onClick={() => removePlayer(player.id)}
+                                    onClick={() => removePlayer(player?.id)}
                                     className="bg-red-500/80 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors duration-200 text-sm font-medium"
                                   >
                                     Remove

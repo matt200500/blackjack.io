@@ -171,3 +171,41 @@ select:disabled {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
+
+@keyframes gradientChange {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.animated-button {
+  background: linear-gradient(270deg, #ff7e5f, #feb47b);
+  background-size: 200% 200%;
+  animation: gradientChange 3s ease infinite, pulse 1.5s ease infinite;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: bold;
+  transition: transform 0.2s;
+}
+
+.disabled-button {
+  background-color: gray;
+  color: #ccc;
+  cursor: not-allowed;
+}

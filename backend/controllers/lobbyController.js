@@ -176,6 +176,13 @@ const joinLobby = async (req, res) => {
 
       const lobby = lobbies[0];
 
+      // Check if the lobby is locked
+      if (lobby.locked) {
+        await connection.rollback();
+        connection.release();
+        return res.status(403).json({ message: "Lobby is locked" });
+      }
+
       // Check password if exists
       if (lobby.lobby_password) {
         const isPasswordCorrect = await bcrypt.compare(
@@ -316,7 +323,7 @@ const leaveLobby = async (req, res) => {
 
     // First check if user is host
     const [lobby] = await connection.query(
-      "SELECT user_ids, lobby_owner FROM lobby WHERE lobby_id = ?",
+      "SELECT user_ids, lobby_owner, current_game_id FROM lobby WHERE lobby_id = ?",
       [lobbyId]
     );
 
@@ -326,8 +333,13 @@ const leaveLobby = async (req, res) => {
 
     const isHost = lobby[0].lobby_owner === userId;
 
-    // If user is host, delete the entire lobby and associated game state
     if (isHost) {
+      // Set current_game_id to NULL to break the foreign key constraint
+      await connection.query(
+        "UPDATE lobby SET current_game_id = NULL WHERE lobby_id = ?",
+        [lobbyId]
+      );
+
       // Delete game_players first (due to foreign key constraints)
       await connection.query(
         `DELETE gp FROM game_players gp 
