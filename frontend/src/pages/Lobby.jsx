@@ -93,36 +93,38 @@ const Lobby = ({ user }) => {
 
     // Cleanup function
     return () => {
-      // If user is host, handle cleanup
-      if (lobby?.host?.id === user.id) {
-        axiosInstance.post(`/lobbies/leave/${id}`).catch((error) => {
-          console.error("Error during host cleanup:", error);
-        });
-      }
-
       socketRef.current.off("request players update");
       socketRef.current.off("host left lobby");
       socketRef.current.off("player joined");
       socketRef.current.off("player left");
       socketRef.current.off("removed from lobby");
       socketRef.current.off("lobby settings updated");
+      socketRef.current.off("game started");
+
+      // Remove socket connection
       socketRef.current.emit("leave lobby", id);
       socketRef.current.disconnect();
-      socketRef.current.off("game started");
+
+      // Clear state
+      setLobby(null);
+      setPlayers([]);
+      setGameStarted(false);
     };
-  }, [id, navigate, user.id, fetchLobby, lobby?.host?.id]);
+  }, [id, navigate, user.id, fetchLobby]);
 
   const leaveLobby = async () => {
     try {
-      await axiosInstance.post(`/lobbies/leave/${id}`);
+      // First navigate away
       navigate("/");
+
+      // Then cleanup
+      await axiosInstance.post(`/lobbies/leave/${id}`);
     } catch (error) {
       console.error(
         "Failed to leave lobby:",
         error.response?.data?.message || error.message
       );
       setError("Failed to leave lobby");
-      setTimeout(() => navigate("/"), 3000);
     }
   };
 

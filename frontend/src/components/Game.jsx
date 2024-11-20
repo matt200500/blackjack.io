@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import PropTypes from "prop-types";
+import HiddenCard from "./HiddenCard";
+import VisibleCard from "./VisibleCard";
 
 const Game = ({ players, lobby, user }) => {
   const [seats, setSeats] = useState(Array(6).fill(null));
@@ -87,6 +89,17 @@ const Game = ({ players, lobby, user }) => {
     }
   }, [gameState, players, user.user_id]);
 
+  // Add another useEffect to log when gameState changes
+  useEffect(() => {
+    if (gameState) {
+      console.log("Current game state:", {
+        gameState,
+        players: gameState.players,
+        seats,
+      });
+    }
+  }, [gameState, seats]);
+
   // Assign seats
   useEffect(() => {
     if (players.length < 2 || players.length > 6) {
@@ -123,30 +136,8 @@ const Game = ({ players, lobby, user }) => {
 
   return (
     <div className="relative w-full max-h-[100dvh] flex items-center justify-center">
-      {/* Rotation prompt for portrait mode */}
-      <div className="md:hidden absolute inset-0 flex items-center justify-center bg-gray-900/90 z-50 portrait:flex landscape:hidden">
-        <div className="text-center p-6">
-          <svg
-            className="w-16 h-16 mx-auto mb-4 text-white animate-bounce"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-          <p className="text-white text-lg font-medium">
-            Please rotate your device to landscape mode
-          </p>
-        </div>
-      </div>
-
-      {/* Game table */}
-      <div className="relative w-full aspect-[16/9] max-w-7xl bg-green-800/90 rounded-xl border-4 border-gray-800 overflow-hidden portrait:hidden landscape:block">
+      {/* Game table - Only show in landscape or on larger screens */}
+      <div className="hidden md:block landscape:block relative w-full aspect-[16/9] max-w-7xl bg-green-800/90 rounded-xl border-4 border-gray-800 overflow-hidden">
         {/* Blackjack Table */}
         <div className="absolute inset-8 sm:inset-12 md:inset-16 bg-green-700/80 rounded-[100%] border-4 sm:border-6 md:border-8 border-gray-800">
           {/* Center pot area */}
@@ -169,6 +160,9 @@ const Game = ({ players, lobby, user }) => {
           ];
 
           const isCurrentTurn = index === gameState?.currentTurn;
+          const playerData = gameState?.players?.find(
+            (p) => p.seatPosition === index
+          );
 
           return (
             <div
@@ -184,25 +178,16 @@ const Game = ({ players, lobby, user }) => {
               bg-gray-800/90 rounded-lg border border-gray-700 sm:border-2 p-1 sm:p-2 
               transform transition-all duration-300`}
             >
-              {player ? (
+              {player && (
                 <div className="relative flex flex-col items-center justify-center h-full">
-                  {isCurrentTurn && (
-                    <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2">
-                      <span className="animate-bounce inline-block">
-                        <svg
-                          className="w-6 h-6 text-yellow-400"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-                  )}
+                  <div className="absolute -top-14 flex gap-1">
+                    {playerData?.cards && (
+                      <>
+                        <VisibleCard card={playerData.cards[0]} />
+                        <HiddenCard />
+                      </>
+                    )}
+                  </div>
                   <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center mb-1">
                     <span className="text-base font-bold text-white">
                       {player.username.charAt(0).toUpperCase()}
@@ -213,14 +198,37 @@ const Game = ({ players, lobby, user }) => {
                   </span>
                   <span className="text-gray-400 text-xs">$1000</span>
                 </div>
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <span className="text-gray-500 text-xs">Empty</span>
-                </div>
               )}
             </div>
           );
         })}
+      </div>
+
+      {/* Rotation prompt - Only show on mobile in portrait */}
+      <div className="md:hidden portrait:flex landscape:hidden w-full h-full flex items-center justify-center">
+        <div className="bg-gray-800/95 rounded-xl p-8 m-4 shadow-lg border border-gray-700 text-center">
+          <div className="animate-bounce">
+            <svg
+              className="w-20 h-20 mx-auto mb-6 text-blue-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          </div>
+          <h3 className="text-2xl font-bold text-white mb-2">
+            Please Rotate Your Device
+          </h3>
+          <p className="text-gray-300">
+            For the best gaming experience, please switch to landscape mode
+          </p>
+        </div>
       </div>
     </div>
   );

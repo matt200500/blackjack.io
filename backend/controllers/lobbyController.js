@@ -308,75 +308,90 @@ const leaveLobby = async (req, res) => {
   const lobbyId = req.params.id;
   const userId = req.user.user_id;
   const io = req.app.get("io");
+  let connection;
 
   try {
-    const connection = await pool.getConnection();
+    connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    try {
-      // Get current lobby state
-      const [lobbies] = await connection.execute(
-        "SELECT user_ids, lobby_owner FROM lobby WHERE lobby_id = ?",
+    // First check if user is host
+    const [lobby] = await connection.query(
+      "SELECT user_ids, lobby_owner FROM lobby WHERE lobby_id = ?",
+      [lobbyId]
+    );
+
+    if (!lobby.length) {
+      throw new Error("Lobby not found");
+    }
+
+    const isHost = lobby[0].lobby_owner === userId;
+
+    // If user is host, delete the entire lobby and associated game state
+    if (isHost) {
+      // Delete game_players first (due to foreign key constraints)
+      await connection.query(
+        `DELETE gp FROM game_players gp 
+         INNER JOIN game_state gs ON gp.game_id = gs.game_id 
+         WHERE gs.lobby_id = ?`,
         [lobbyId]
       );
 
-      if (!lobbies.length) {
-        throw new Error("Lobby not found");
-      }
+      // Delete game_state
+      await connection.query("DELETE FROM game_state WHERE lobby_id = ?", [
+        lobbyId,
+      ]);
 
-      const lobby = lobbies[0];
-      const isHost = lobby.lobby_owner === userId;
+      // Delete the lobby
+      await connection.query("DELETE FROM lobby WHERE lobby_id = ?", [lobbyId]);
 
-      if (isHost) {
-        // If host is leaving, delete the lobby and notify all users
-        await connection.execute("DELETE FROM lobby WHERE lobby_id = ?", [
-          lobbyId,
-        ]);
+      // Notify all players in the lobby
+      io.to(lobbyId).emit("host left lobby", { lobbyId });
+    } else {
+      // Regular player leaving logic
+      // First, check if there's an active game
+      const [gameState] = await connection.query(
+        "SELECT game_id FROM game_state WHERE lobby_id = ? ORDER BY created_at DESC LIMIT 1",
+        [lobbyId]
+      );
 
-        // Notify all users in the lobby that the host left
-        io.to(lobbyId).emit("host left lobby", {
-          message: "Host has left the lobby",
-          lobbyId,
-        });
-
-        // Disconnect all sockets from this room
-        const room = io.sockets.adapter.rooms.get(lobbyId.toString());
-        if (room) {
-          for (const socketId of room) {
-            io.sockets.sockets.get(socketId)?.leave(lobbyId);
-          }
-        }
-      } else {
-        // Regular player leaving
-        let userIds = lobby.user_ids ? lobby.user_ids.split(",") : [];
-        userIds = userIds.filter((id) => id !== userId.toString());
-
-        await connection.execute(
-          "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
-          [userIds.join(","), lobbyId]
+      if (gameState.length > 0) {
+        await connection.query(
+          "DELETE FROM game_players WHERE game_id = ? AND user_id = ?",
+          [gameState[0].game_id, userId]
         );
-
-        // Notify remaining players about the leave
-        io.to(lobbyId).emit("player left", {
-          userId,
-          remainingPlayers: userIds,
-        });
       }
 
-      await connection.commit();
-      res.status(200).json({
-        message: "Successfully left lobby",
-        wasHost: isHost,
+      // Update the lobby's player list
+      const currentPlayers = lobby[0].user_ids.split(",");
+      const updatedPlayers = currentPlayers.filter(
+        (id) => id !== userId.toString()
+      );
+
+      await connection.query(
+        "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
+        [updatedPlayers.join(","), lobbyId]
+      );
+
+      // Notify remaining players
+      io.to(lobbyId).emit("player left", {
+        lobbyId,
+        userId,
+        players: updatedPlayers,
       });
-    } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
     }
+
+    await connection.commit();
+    res.json({ message: "Successfully left lobby" });
   } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
     console.error("Error leaving lobby:", error);
     res.status(500).json({ message: error.message });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 };
 
@@ -604,8 +619,8 @@ const updateLobbySettings = async (req, res) => {
 
 const startGame = async (req, res) => {
   const lobbyId = req.params.id;
-  const userId = req.user.user_id;
   const io = req.app.get("io");
+  const { getRandomCard } = require("../utils/cardUtils");
 
   try {
     const [lobby] = await pool.execute(
@@ -620,42 +635,64 @@ const startGame = async (req, res) => {
     const players = lobby[0].user_ids.split(",");
     console.log("Starting game with players:", players);
 
-    // In Blackjack, we'll start with player at index 0
-    const firstToAct = 0;
+    // Deal initial cards to each player
+    const playerCards = {};
+    for (const playerId of players) {
+      playerCards[playerId] = {
+        cards: [getRandomCard(), getRandomCard()],
+      };
+    }
 
-    const gameState = {
-      currentTurn: firstToAct,
-    };
-
-    console.log("Game state to broadcast:", gameState);
-
-    // Log room info before emit
-    const room = io.sockets.adapter.rooms.get(lobbyId.toString());
-    console.log(
-      `Broadcasting to lobby ${lobbyId}, connected sockets:`,
-      Array.from(room || [])
-    );
-
-    // Broadcast to room
-    io.to(lobbyId.toString()).emit("game started", gameState);
-
-    // Store game state in database
+    // Store game state
     const [result] = await pool.execute(
       `INSERT INTO game_state (
         lobby_id, 
         current_player_turn,
         current_round
       ) VALUES (?, ?, ?)`,
-      [lobbyId, firstToAct, 1]
+      [lobbyId, 0, 1]
     );
+
+    const gameId = result.insertId;
+
+    // Insert player cards
+    for (const playerId of players) {
+      await pool.execute(
+        `INSERT INTO game_players (
+          game_id,
+          user_id,
+          seat_position,
+          cards
+        ) VALUES (?, ?, ?, ?)`,
+        [
+          gameId,
+          playerId,
+          players.indexOf(playerId),
+          playerCards[playerId].cards.join(","),
+        ]
+      );
+    }
 
     // Update lobby status
     await pool.execute(
       "UPDATE lobby SET game_started = TRUE, current_game_id = ? WHERE lobby_id = ?",
-      [result.insertId, lobbyId]
+      [gameId, lobbyId]
     );
 
-    res.status(200).json({ success: true, gameState });
+    // Create game state for clients
+    const gameStateForClients = {
+      currentTurn: 0,
+      currentRound: 1,
+      players: players.map((playerId) => ({
+        id: playerId,
+        cards: playerCards[playerId].cards,
+        seatPosition: players.indexOf(playerId),
+      })),
+    };
+
+    console.log("Broadcasting game state:", gameStateForClients);
+    io.to(lobbyId.toString()).emit("game started", gameStateForClients);
+    res.status(200).json({ success: true, gameState: gameStateForClients });
   } catch (error) {
     console.error("Error starting game:", error);
     res.status(400).json({ message: error.message });
