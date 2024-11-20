@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import ChatBox from "../components/Chatbox";
+import ChatBox from "../components/ChatBox";
 import ErrorMessage from "../components/ErrorMessage";
 import axiosInstance from "../utils/axiosInstance";
 import io from "socket.io-client";
@@ -221,78 +221,84 @@ const Lobby = ({ user }) => {
           {gameStarted ? (
             <Game players={players} lobby={lobby} user={user} />
           ) : (
-            <div className="flex justify-center">
-              {(user.role === "host" || user.role === "admin") && (
-                <button
-                  onClick={startGame}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200"
-                >
-                  Start Game
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Settings Section (if host/admin) */}
-        {(user.role === "host" || user.role === "admin") && (
-          <div className="mb-6">
-            <LobbySettings lobby={lobby} onUpdate={handleLobbyUpdate} />
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
-          {/* Players List */}
-          <div className="overflow-hidden">
-            <div className="bg-gray-700/50 rounded-lg border border-gray-600 flex flex-col h-full">
-              <div className="p-4 border-b border-gray-600">
-                <h2 className="text-xl font-bold text-gray-100">Players</h2>
-              </div>
-              <div className=" overflow-y-auto flex-1">
-                {players.filter((player) => player.id !== user.id).length ===
-                0 ? (
-                  <p className="text-gray-400 text-center py-4">
-                    No other players
-                  </p>
-                ) : (
-                  <ul className="space-y-2">
-                    {players
-                      .filter((player) => player.id !== user.id)
-                      .map((player) => (
-                        <li
-                          key={player.id}
-                          className="flex items-center justify-between p-3 rounded bg-gray-600/50 hover:bg-gray-600 transition-colors duration-200"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 rounded-full bg-gray-500/50 flex items-center justify-center">
-                              <span className="text-sm font-medium text-gray-200">
-                                {player.username.charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                            <span className="text-gray-200 font-medium">
-                              {player.username}
-                            </span>
-                          </div>
-                          {(user.role === "host" || user.role === "admin") && (
-                            <button
-                              onClick={() => removePlayer(player.id)}
-                              className="bg-red-500/80 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors duration-200 text-sm font-medium"
-                            >
-                              Remove
-                            </button>
-                          )}
-                        </li>
-                      ))}
-                  </ul>
+            <>
+              <div className="flex justify-center">
+                {(user.role === "host" || user.role === "admin") && (
+                  <button
+                    onClick={startGame}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200"
+                  >
+                    Start Game
+                  </button>
                 )}
               </div>
-            </div>
-          </div>
 
-          {/* Chat Section */}
-          <div className="lg:col-span-2 h-full">
-            <ChatBox user={user} lobbyId={id} />
-          </div>
+              {/* Settings Section (if host/admin) */}
+              {(user.role === "host" || user.role === "admin") && (
+                <div className="mb-6">
+                  <LobbySettings lobby={lobby} onUpdate={handleLobbyUpdate} />
+                </div>
+              )}
+
+              {/* Players and Chat Section - Only shown before game starts */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
+                {/* Players List */}
+                <div className="overflow-hidden">
+                  <div className="bg-gray-700/50 rounded-lg border border-gray-600 flex flex-col h-full">
+                    <div className="p-4 border-b border-gray-600">
+                      <h2 className="text-xl font-bold text-gray-100">
+                        Players
+                      </h2>
+                    </div>
+                    <div className=" overflow-y-auto flex-1">
+                      {players.filter((player) => player.id !== user.id)
+                        .length === 0 ? (
+                        <p className="text-gray-400 text-center py-4">
+                          No other players
+                        </p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {players
+                            .filter((player) => player.id !== user.id)
+                            .map((player) => (
+                              <li
+                                key={player.id}
+                                className="flex items-center justify-between p-3 rounded bg-gray-600/50 hover:bg-gray-600 transition-colors duration-200"
+                              >
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-8 h-8 rounded-full bg-gray-500/50 flex items-center justify-center">
+                                    <span className="text-sm font-medium text-gray-200">
+                                      {player.username.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <span className="text-gray-200 font-medium">
+                                    {player.username}
+                                  </span>
+                                </div>
+                                {(user.role === "host" ||
+                                  user.role === "admin") && (
+                                  <button
+                                    onClick={() => removePlayer(player.id)}
+                                    className="bg-red-500/80 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors duration-200 text-sm font-medium"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Chat Section */}
+                <div className="lg:col-span-2 h-[400px] md:h-[600px]">
+                  <ChatBox user={user} lobbyId={id} />
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -3,11 +3,44 @@ import { io } from "socket.io-client";
 import PropTypes from "prop-types";
 import HiddenCard from "./HiddenCard";
 import VisibleCard from "./VisibleCard";
+import ChatBox from "./ChatBox";
+
+const ChatToggleButton = ({ onClick, isOpen }) => (
+  <button
+    onClick={onClick}
+    className="fixed bottom-4 right-4 z-50 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="h-6 w-6"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      {isOpen ? (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M6 18L18 6M6 6l12 12"
+        />
+      ) : (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+        />
+      )}
+    </svg>
+  </button>
+);
 
 const Game = ({ players, lobby, user }) => {
   const [seats, setSeats] = useState(Array(6).fill(null));
   const [error, setError] = useState("");
   const [gameState, setGameState] = useState(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const socketRef = useRef();
 
@@ -135,7 +168,7 @@ const Game = ({ players, lobby, user }) => {
   }
 
   return (
-    <div className="relative w-full max-h-[100dvh] flex items-center justify-center">
+    <div className="flex justify-center">
       {/* Game table - Only show in landscape or on larger screens */}
       <div className="hidden md:block landscape:block relative w-full aspect-[16/9] max-w-7xl bg-green-800/90 rounded-xl border-4 border-gray-800 overflow-hidden">
         {/* Blackjack Table */}
@@ -228,6 +261,26 @@ const Game = ({ players, lobby, user }) => {
           <p className="text-gray-300">
             For the best gaming experience, please switch to landscape mode
           </p>
+        </div>
+      </div>
+
+      {/* Chat Toggle Button */}
+      <ChatToggleButton
+        onClick={() => setIsChatOpen(!isChatOpen)}
+        isOpen={isChatOpen}
+      />
+
+      {/* Chat Overlay */}
+      <div
+        className={`fixed inset-x-0 bottom-0 z-40 transition-transform duration-300 ease-in-out transform ${
+          isChatOpen ? "translate-y-0" : "translate-y-full"
+        }`}
+      >
+        <div className="bg-gray-800 border-t border-gray-700 shadow-lg">
+          {/* Chat Content */}
+          <div className="h-screen lg:h-[50vh] overflow-scroll w-full p-8">
+            <ChatBox user={user} lobbyId={lobby.id} />
+          </div>
         </div>
       </div>
     </div>

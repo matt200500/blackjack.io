@@ -47,8 +47,8 @@ const ChatBox = ({ user, lobbyId }) => {
   };
 
   return (
-    <div className="bg-gray-800/50 p-4 rounded-lg shadow-lg w-full max-w-2xl h-[400px] md:h-[600px] flex flex-col border border-gray-700">
-      <h2 className="text-xl font-bold mb-4 text-gray-100 flex items-center">
+    <div className="bg-gray-800/50 p-4 rounded-lg shadow-lg w-full h-full flex flex-col border border-gray-700">
+      <h2 className="text-xl font-bold mb-4 text-gray-100 flex items-center w-full">
         <span className="flex-grow">Chat</span>
         {user && (
           <span className="text-sm font-medium text-blue-300">
