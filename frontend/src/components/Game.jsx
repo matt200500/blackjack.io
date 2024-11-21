@@ -278,7 +278,7 @@ const Game = ({ players, lobby, user }) => {
       >
         <div className="bg-gray-800 border-t border-gray-700 shadow-lg">
           {/* Chat Content */}
-          <div className="h-screen lg:h-[50vh] overflow-scroll w-full p-8">
+          <div className="h-[90vh] lg:h-[50vh] overflow-scroll w-full p-8">
             <ChatBox user={user} lobbyId={lobby.id} />
           </div>
         </div>

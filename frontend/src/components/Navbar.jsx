@@ -13,7 +13,7 @@ const Navbar = ({ user, handleLogout }) => {
   };
 
   return (
-    <nav className="bg-gradient-to-r from-gray-900 to-gray-800 px-6 shadow-lg h-14 flex items-center w-full">
+    <nav className="bg-gradient-to-r from-gray-900 to-gray-800 px-6 shadow-lg h-14 flex items-center w-full sticky-navbar">
       <div className="flex justify-between items-center w-full">
         <NavLink
           to="/"

@@ -41,26 +41,28 @@ const App = () => {
     <Router>
       <div className="flex flex-col min-h-screen">
         <Navbar user={user} setUser={setUser} handleLogout={handleLogout} />
-        {error && <ErrorMessage message={error} />}
-        <Routes>
-          <Route path="/" element={<Home user={user} />} />
-          <Route path="/login" element={<Login setUser={setUser} />} />
-          <Route path="/signup" element={<SignUp setUser={setUser} />} />
-          <Route
-            path="/profile"
-            element={
-              user ? (
-                <Profile user={user} setUser={setUser} />
-              ) : (
-                <Navigate to="/login" />
-              )
-            }
-          />
-          <Route
-            path="/lobby/:id"
-            element={user ? <Lobby user={user} /> : <Navigate to="/login" />}
-          />
-        </Routes>
+        <div className="main-content">
+          {error && <ErrorMessage message={error} />}
+          <Routes>
+            <Route path="/" element={<Home user={user} />} />
+            <Route path="/login" element={<Login setUser={setUser} />} />
+            <Route path="/signup" element={<SignUp setUser={setUser} />} />
+            <Route
+              path="/profile"
+              element={
+                user ? (
+                  <Profile user={user} setUser={setUser} />
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
+            <Route
+              path="/lobby/:id"
+              element={user ? <Lobby user={user} /> : <Navigate to="/login" />}
+            />
+          </Routes>
+        </div>
       </div>
     </Router>
   );

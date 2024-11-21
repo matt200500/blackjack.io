@@ -209,3 +209,18 @@ select:disabled {
   color: #ccc;
   cursor: not-allowed;
 }
+
+.sticky-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  background-color: #333;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  height: 60px;
+}
+
+.main-content {
+  padding-top: 60px;
+}

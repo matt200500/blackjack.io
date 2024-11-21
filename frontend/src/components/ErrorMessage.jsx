@@ -14,7 +14,7 @@ const ErrorMessage = ({ message, duration = 3000 }) => {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded shadow-lg animate-fade-in-out">
+    <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded shadow-lg animate-fade-in-out">
       {message}
     </div>
   );
