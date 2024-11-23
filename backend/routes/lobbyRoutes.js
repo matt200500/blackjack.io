@@ -23,12 +23,12 @@ router.put("/:id/settings", protect, updateLobbySettings);
 router.post("/:id/start-game", protect, startGame);
 router.get("/:id/game-state", protect, async (req, res) => {
   try {
-    const [lobby] = await pool.execute(
-      "SELECT user_ids FROM lobby WHERE lobby_id = ?",
+    const [lobbies] = await pool.execute(
+      "SELECT user_ids FROM lobbies WHERE lobby_id = ?",
       [req.params.id]
     );
 
-    if (!lobby.length) {
+    if (!lobbies.length) {
       return res.status(404).json({ message: "Lobby not found" });
     }
 
@@ -65,10 +65,10 @@ router.get("/:id/game-state", protect, async (req, res) => {
         id: player.id,
         cards: player.cards ? player.cards.split(",") : [],
         seatPosition: player.seat_position,
-        money: player.money,
-        is_active: player.is_active,
-        stepped_back: player.stepped_back,
-        done_turn: player.done_turn
+        money: player.money || 1000, // Default to 1000 if not set
+        is_active: player.is_active || true,
+        stepped_back: player.stepped_back || false,
+        done_turn: player.done_turn || false
       }));
 
       res.json({

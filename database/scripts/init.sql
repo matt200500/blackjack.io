@@ -33,7 +33,7 @@ CREATE TABLE game_state (
 );
 
 -- Now create lobby table
-CREATE TABLE lobby (
+CREATE TABLE lobbies (
     lobby_id INT AUTO_INCREMENT PRIMARY KEY,
     lobby_name VARCHAR(255) NOT NULL,
     lobby_password VARCHAR(255),
@@ -53,7 +53,7 @@ CREATE TABLE lobby (
 
 -- Add foreign key to game_state after lobby is created
 ALTER TABLE game_state
-ADD FOREIGN KEY (lobby_id) REFERENCES lobby(lobby_id) ON DELETE CASCADE;
+ADD FOREIGN KEY (lobby_id) REFERENCES lobbies(lobby_id) ON DELETE CASCADE;
 
 -- Create game_players table
 CREATE TABLE game_players (

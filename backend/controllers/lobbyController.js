@@ -12,7 +12,7 @@ const createLobby = async (req, res) => {
     try {
       // Create lobby with properly formatted JSON array of user IDs
       const [result] = await connection.execute(
-        `INSERT INTO lobby (
+        `INSERT INTO lobbies (
           lobby_name, 
           lobby_password, 
           expertise_level, 
@@ -34,7 +34,7 @@ const createLobby = async (req, res) => {
       const [lobbies] = await connection.execute(
         `
         SELECT l.*, u.username as host_username
-        FROM lobby l
+        FROM lobbies l
         JOIN users u ON l.lobby_owner = u.user_id
         WHERE l.lobby_id = ?
       `,
@@ -97,7 +97,7 @@ const getLobbies = async (req, res) => {
         END as playerCount,
         u.username as hostUsername,
         u.user_id as hostId
-      FROM lobby l
+      FROM lobbies l
       LEFT JOIN users u ON l.lobby_owner = u.user_id
       WHERE l.is_open = 1
     `;
@@ -164,7 +164,7 @@ const joinLobby = async (req, res) => {
     try {
       // Get lobby
       const [lobbies] = await connection.execute(
-        "SELECT * FROM lobby WHERE lobby_id = ?",
+        "SELECT * FROM lobbies WHERE lobby_id = ?",
         [lobbyId]
       );
 
@@ -202,7 +202,7 @@ const joinLobby = async (req, res) => {
       if (!userIds.includes(userId.toString())) {
         userIds.push(userId.toString());
         await connection.execute(
-          "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
+          "UPDATE lobbies SET user_ids = ? WHERE lobby_id = ?",
           [userIds.join(","), lobbyId]
         );
       }
@@ -254,7 +254,7 @@ const getLobby = async (req, res) => {
     const [lobbies] = await pool.execute(
       `
       SELECT l.*, u.username as host_username
-      FROM lobby l
+      FROM lobbies l
       JOIN users u ON l.lobby_owner = u.user_id
       WHERE l.lobby_id = ?
     `,
@@ -324,7 +324,7 @@ const leaveLobby = async (req, res) => {
 
     // First check if user is host
     const [lobby] = await connection.query(
-      "SELECT user_ids, lobby_owner, current_game_id FROM lobby WHERE lobby_id = ?",
+      "SELECT user_ids, lobby_owner, current_game_id FROM lobbies WHERE lobby_id = ?",
       [lobbyId]
     );
 
@@ -337,7 +337,7 @@ const leaveLobby = async (req, res) => {
     if (isHost) {
       // Set current_game_id to NULL to break the foreign key constraint
       await connection.query(
-        "UPDATE lobby SET current_game_id = NULL WHERE lobby_id = ?",
+        "UPDATE lobbies SET current_game_id = NULL WHERE lobby_id = ?",
         [lobbyId]
       );
 
@@ -355,7 +355,7 @@ const leaveLobby = async (req, res) => {
       ]);
 
       // Delete the lobby
-      await connection.query("DELETE FROM lobby WHERE lobby_id = ?", [lobbyId]);
+      await connection.query("DELETE FROM lobbies WHERE lobby_id = ?", [lobbyId]);
 
       // Notify all players in the lobby
       io.to(lobbyId).emit("host left lobby", { lobbyId });
@@ -381,7 +381,7 @@ const leaveLobby = async (req, res) => {
       );
 
       await connection.query(
-        "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
+        "UPDATE lobbies SET user_ids = ? WHERE lobby_id = ?",
         [updatedPlayers.join(","), lobbyId]
       );
 
@@ -423,7 +423,7 @@ const removePlayer = async (req, res) => {
       const [lobbies] = await connection.execute(
         `
         SELECT l.*, u.username as host_username
-        FROM lobby l
+        FROM lobbies l
         JOIN users u ON l.lobby_owner = u.user_id
         WHERE l.lobby_id = ?
       `,
@@ -458,7 +458,7 @@ const removePlayer = async (req, res) => {
       const updatedUserIds = userIds.filter((id) => id !== playerId.toString());
 
       await connection.execute(
-        "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
+        "UPDATE lobbies SET user_ids = ? WHERE lobby_id = ?",
         [updatedUserIds.join(","), lobbyId]
       );
 
@@ -523,7 +523,7 @@ const updateLobbySettings = async (req, res) => {
     try {
       // Get lobby
       const [lobbies] = await connection.execute(
-        "SELECT * FROM lobby WHERE lobby_id = ?",
+        "SELECT * FROM lobbies WHERE lobby_id = ?",
         [lobbyId]
       );
 
@@ -565,7 +565,7 @@ const updateLobbySettings = async (req, res) => {
 
       // Execute update
       const updateResult = await connection.execute(
-        `UPDATE lobby 
+        `UPDATE lobbies 
          SET lobby_name = ?, 
              lobby_password = ?, 
              locked = ?, 
@@ -589,7 +589,7 @@ const updateLobbySettings = async (req, res) => {
       // Get updated lobby info
       const [updatedLobbies] = await connection.execute(
         `SELECT l.*, u.username as host_username
-         FROM lobby l
+         FROM lobbies l
          JOIN users u ON l.lobby_owner = u.user_id
          WHERE l.lobby_id = ?`,
         [lobbyId]
@@ -641,7 +641,7 @@ const startGame = async (req, res) => {
   try {
     // Get lobby information including buy_in
     const [lobby] = await pool.execute(
-      "SELECT lobby_owner, user_ids, starting_bank, buy_in FROM lobby WHERE lobby_id = ?",
+      "SELECT lobby_owner, user_ids, starting_bank, buy_in FROM lobbies WHERE lobby_id = ?",
       [lobbyId]
     );
 
@@ -711,7 +711,7 @@ const startGame = async (req, res) => {
 
     // Update lobby status
     await pool.execute(
-      "UPDATE lobby SET game_started = TRUE, current_game_id = ? WHERE lobby_id = ?",
+      "UPDATE lobbies SET game_started = TRUE, current_game_id = ? WHERE lobby_id = ?",
       [gameId, lobbyId]
     );
 

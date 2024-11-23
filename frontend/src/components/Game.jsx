@@ -196,14 +196,24 @@ const Game = ({ players, lobby, user }) => {
 
   const handleSkip = async () => {
     try {
-      const response = await api.post('/api/game/skip', {
-        gameId: gameState.gameId,
-        userId: user.user_id,
-        lobbyId: lobby.id
-      });
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `http://localhost:3001/api/game/skip`,
+        {
+          gameId: gameState.gameId,
+          userId: user.user_id,
+          lobbyId: lobby.id,
+          seatPosition: gameState.players.find(p => p.id === user.user_id)?.seatPosition
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
       
       if (response.data.success) {
-        setPlayersActed(prev => new Set([...prev, user.user_id]));
+        console.log("Skip successful:", response.data);
         if (response.data.gameState) {
           setGameState(response.data.gameState);
         }
@@ -212,6 +222,17 @@ const Game = ({ players, lobby, user }) => {
       console.error("Error skipping:", error);
     }
   };
+
+  useEffect(() => {
+    socketRef.current.on('game state updated', (updatedGameState) => {
+      console.log('Received updated game state:', updatedGameState);
+      setGameState(updatedGameState);
+    });
+
+    return () => {
+      socketRef.current.off('game state updated');
+    };
+  }, []);
 
   return (
     <div className="flex justify-center">

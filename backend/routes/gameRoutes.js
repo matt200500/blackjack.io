@@ -4,7 +4,7 @@ const { protect } = require('../middleware/authMiddleware');
 const { pool } = require('../utils/db');
 
 router.post('/skip', protect, async (req, res) => {
-  const { gameId, userId, lobbyId } = req.body;
+  const { gameId, userId, lobbyId, seatPosition } = req.body;
   const io = req.app.get('io');
 
   try {
@@ -15,34 +15,33 @@ router.post('/skip', protect, async (req, res) => {
       // Update player's status
       await connection.execute(
         `UPDATE game_players 
-         SET done_turn = TRUE,
-             stepped_back = TRUE
+         SET stepped_back = TRUE,
+             done_turn = TRUE
          WHERE game_id = ? AND user_id = ?`,
         [gameId, userId]
       );
 
       // Get current game state
       const [gameState] = await connection.execute(
-        `SELECT current_player_turn
-         FROM game_state 
-         WHERE game_id = ?`,
+        `SELECT * FROM game_state WHERE game_id = ?`,
         [gameId]
       );
 
-      // Get next active player
+      // Get all players to determine next turn
       const [players] = await connection.execute(
-        `SELECT user_id, seat_position 
+        `SELECT user_id, seat_position, stepped_back, done_turn, cards, money, is_active
          FROM game_players 
-         WHERE game_id = ? AND stepped_back = FALSE
+         WHERE game_id = ? 
          ORDER BY seat_position`,
         [gameId]
       );
 
-      // Find next player's turn
+      // Find next active player
       let nextTurn = gameState[0].current_player_turn;
-      if (players.length > 0) {
-        const currentIndex = players.findIndex(p => p.seat_position === nextTurn);
-        nextTurn = players[(currentIndex + 1) % players.length]?.seat_position ?? 0;
+      const activePlayers = players.filter(p => !p.stepped_back);
+      if (activePlayers.length > 0) {
+        const currentPlayerIndex = activePlayers.findIndex(p => p.seat_position === nextTurn);
+        nextTurn = activePlayers[(currentPlayerIndex + 1) % activePlayers.length]?.seat_position ?? nextTurn;
       }
 
       // Update game state with next player's turn
@@ -53,9 +52,9 @@ router.post('/skip', protect, async (req, res) => {
         [nextTurn, gameId]
       );
 
-      // Get updated game state to send to clients
+      // Get updated game state for response
       const [updatedGameState] = await connection.execute(
-        `SELECT gs.*, gp.user_id, gp.cards, gp.seat_position, 
+        `SELECT gs.*, gp.user_id, gp.seat_position, gp.cards, 
                 gp.money, gp.is_active, gp.stepped_back, gp.done_turn
          FROM game_state gs
          LEFT JOIN game_players gp ON gs.game_id = gp.game_id
@@ -63,16 +62,15 @@ router.post('/skip', protect, async (req, res) => {
         [gameId]
       );
 
-      await connection.commit();
-
-      // Format the game state for clients
+      // Format the response
       const formattedGameState = {
         gameId,
         currentTurn: nextTurn,
-        players: updatedGameState.map(player => ({
+        potAmount: updatedGameState[0].pot_amount,
+        players: players.map(player => ({
           id: player.user_id,
-          cards: player.cards ? player.cards.split(',') : [],
           seatPosition: player.seat_position,
+          cards: player.cards ? player.cards.split(',') : [],
           money: player.money,
           is_active: player.is_active,
           stepped_back: player.stepped_back,
@@ -80,7 +78,9 @@ router.post('/skip', protect, async (req, res) => {
         }))
       };
 
-      // Emit updated game state to all players in the lobby
+      await connection.commit();
+
+      // Emit updated game state to all players
       io.to(lobbyId.toString()).emit('game state updated', formattedGameState);
 
       res.json({
