@@ -4,6 +4,7 @@ import PropTypes from "prop-types";
 import HiddenCard from "./HiddenCard";
 import VisibleCard from "./VisibleCard";
 import ChatBox from "./ChatBox";
+import axios from "axios";
 
 const ChatToggleButton = ({ onClick, isOpen }) => (
   <button
@@ -36,12 +37,19 @@ const ChatToggleButton = ({ onClick, isOpen }) => (
   </button>
 );
 
+const api = axios.create({
+  baseURL: 'http://localhost:3001',
+  headers: {
+    Authorization: `Bearer ${localStorage.getItem('token')}`
+  }
+});
+
 const Game = ({ players, lobby, user }) => {
   const [seats, setSeats] = useState(Array(6).fill(null));
   const [error, setError] = useState("");
   const [gameState, setGameState] = useState(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
-
+  const [playersActed, setPlayersActed] = useState(new Set());
   const socketRef = useRef();
 
   // Add prop validation
@@ -104,6 +112,11 @@ const Game = ({ players, lobby, user }) => {
       setGameState(data);
     });
 
+    socketRef.current.on("game state updated", (updatedGameState) => {
+      console.log("Received updated game state:", updatedGameState);
+      setGameState(updatedGameState);
+    });
+
     return () => {
       console.log("Cleaning up socket connection");
       if (socketRef.current) {
@@ -130,6 +143,20 @@ const Game = ({ players, lobby, user }) => {
         players: gameState.players,
         seats,
       });
+      
+      // Add detailed player logging THIS IS FOR DEBUGGING To UNDERSTAND THIS
+      console.log("Detailed player information:");
+      gameState.players?.forEach((player, index) => {
+        console.log(`Player ${index + 1}:`, {
+          seatPosition: player.seatPosition,
+          cards: player.cards,
+          money: player.money,
+          is_active: player.is_active,
+          stepped_back: player.stepped_back,
+          done_turn: player.done_turn,
+          allProperties: player // This will show all available properties
+        });
+      }); // END OF DEBUGGING
     }
   }, [gameState, seats]);
 
@@ -167,6 +194,25 @@ const Game = ({ players, lobby, user }) => {
     );
   }
 
+  const handleSkip = async () => {
+    try {
+      const response = await api.post('/api/game/skip', {
+        gameId: gameState.gameId,
+        userId: user.user_id,
+        lobbyId: lobby.id
+      });
+      
+      if (response.data.success) {
+        setPlayersActed(prev => new Set([...prev, user.user_id]));
+        if (response.data.gameState) {
+          setGameState(response.data.gameState);
+        }
+      }
+    } catch (error) {
+      console.error("Error skipping:", error);
+    }
+  };
+
   return (
     <div className="flex justify-center">
       {/* Game table - Only show in landscape or on larger screens */}
@@ -176,7 +222,7 @@ const Game = ({ players, lobby, user }) => {
           {/* Center pot area */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
             <span className="text-white text-sm sm:text-base md:text-lg font-bold whitespace-nowrap">
-              Pot: $0
+              Pot: ${gameState?.potAmount || 0}
             </span>
           </div>
         </div>
@@ -226,10 +272,19 @@ const Game = ({ players, lobby, user }) => {
                       {player.username.charAt(0).toUpperCase()}
                     </span>
                   </div>
-                  <span className="text-white font-medium text-sm truncate max-w-[90%]">
-                    {player.username}
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-medium text-sm truncate max-w-[90%]">
+                      {player.username}
+                    </span>
+                    {playersActed.has(player.user_id) && (
+                      <span className="text-xs text-green-400 font-medium">
+                        Done Turn
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-gray-400 text-xs">
+                    ${playerData?.money}
                   </span>
-                  <span className="text-gray-400 text-xs">$1000</span>
                 </div>
               )}
             </div>
@@ -262,6 +317,21 @@ const Game = ({ players, lobby, user }) => {
             For the best gaming experience, please switch to landscape mode
           </p>
         </div>
+      </div>
+
+      {/* Add these buttons just before the Chat Toggle Button */}
+      <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 flex gap-4 z-50">
+        <button
+          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105"
+        >
+          Hit
+        </button>
+        <button
+          className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105"
+          onClick={handleSkip}
+        >
+          Skip
+        </button>
       </div>
 
       {/* Chat Toggle Button */}

@@ -291,6 +291,7 @@ const getLobby = async (req, res) => {
       },
       expertiseLevel: lobby.expertise_level,
       starting_bank: lobby.starting_bank || 1000,
+      buy_in: lobby.buy_in || 100,
       players: players.map((player) => ({
         id: player.user_id,
         username: player.username,
@@ -505,7 +506,7 @@ const removePlayer = async (req, res) => {
 
 const updateLobbySettings = async (req, res) => {
   const { id: lobbyId } = req.params;
-  const { name, password, locked, starting_bank, expertiseLevel } = req.body;
+  const { name, password, locked, starting_bank, expertiseLevel, buy_in } = req.body;
   const userId = req.user.user_id;
   const io = req.app.get("io");
 
@@ -569,7 +570,8 @@ const updateLobbySettings = async (req, res) => {
              lobby_password = ?, 
              locked = ?, 
              starting_bank = ?,
-             expertise_level = ?
+             expertise_level = ?,
+             buy_in = ?
          WHERE lobby_id = ?`,
         [
           updatedName,
@@ -577,6 +579,7 @@ const updateLobbySettings = async (req, res) => {
           updatedLocked,
           updatedStartingBank,
           updatedExpertiseLevel,
+          buy_in,
           lobbyId,
         ]
       );
@@ -607,6 +610,7 @@ const updateLobbySettings = async (req, res) => {
         locked: updatedLobbies[0].locked,
         expertiseLevel: updatedLobbies[0].expertise_level,
         starting_bank: updatedLobbies[0].starting_bank,
+        buy_in: updatedLobbies[0].buy_in,
       };
 
       console.log("LOBBY UPDATE - Final response:", updatedLobby);
@@ -635,8 +639,9 @@ const startGame = async (req, res) => {
   const { getRandomCard } = require("../utils/cardUtils");
 
   try {
+    // Get lobby information including buy_in
     const [lobby] = await pool.execute(
-      "SELECT lobby_owner, user_ids FROM lobby WHERE lobby_id = ?",
+      "SELECT lobby_owner, user_ids, starting_bank, buy_in FROM lobby WHERE lobby_id = ?",
       [lobbyId]
     );
 
@@ -645,7 +650,17 @@ const startGame = async (req, res) => {
     }
 
     const players = lobby[0].user_ids.split(",");
-    console.log("Starting game with players:", players);
+    const startingBank = lobby[0].starting_bank || 1000;
+    const buyIn = lobby[0].buy_in || 100;
+    const potAmount = buyIn * players.length; // Calculate total pot
+
+    console.log("DEBUG - Game Start Values:", {
+      players,
+      startingBank,
+      buyIn,
+      potAmount,
+      rawLobbyData: lobby[0]
+    });
 
     // Deal initial cards to each player
     const playerCards = {};
@@ -660,27 +675,36 @@ const startGame = async (req, res) => {
       `INSERT INTO game_state (
         lobby_id, 
         current_player_turn,
-        current_round
-      ) VALUES (?, ?, ?)`,
-      [lobbyId, 0, 1]
+        current_round,
+        pot_amount
+      ) VALUES (?, ?, ?, ?)`,
+      [lobbyId, 0, 1, potAmount]
     );
 
     const gameId = result.insertId;
 
-    // Insert player cards
+    // Insert player cards with money reduced by buy-in
     for (const playerId of players) {
       await pool.execute(
         `INSERT INTO game_players (
           game_id,
           user_id,
           seat_position,
-          cards
-        ) VALUES (?, ?, ?, ?)`,
+          cards,
+          money,
+          is_active,
+          stepped_back,
+          done_turn
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           gameId,
           playerId,
           players.indexOf(playerId),
           playerCards[playerId].cards.join(","),
+          startingBank - buyIn, // Subtract buy-in from starting bank
+          true,
+          false,
+          false
         ]
       );
     }
@@ -693,16 +717,23 @@ const startGame = async (req, res) => {
 
     // Create game state for clients
     const gameStateForClients = {
+      gameId,
       currentTurn: 0,
       currentRound: 1,
+      potAmount,
       players: players.map((playerId) => ({
         id: playerId,
         cards: playerCards[playerId].cards,
         seatPosition: players.indexOf(playerId),
+        money: startingBank - buyIn,
+        is_active: true,
+        stepped_back: false,
+        done_turn: false
       })),
     };
 
-    console.log("Broadcasting game state:", gameStateForClients);
+    console.log("DEBUG - Final game state being sent:", gameStateForClients);
+
     io.to(lobbyId.toString()).emit("game started", gameStateForClients);
     res.status(200).json({ success: true, gameState: gameStateForClients });
   } catch (error) {

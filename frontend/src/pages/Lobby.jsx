@@ -189,6 +189,10 @@ const Lobby = ({ user }) => {
               Starting Bank:&nbsp;
               <span className="text-gray-400">{lobby.starting_bank}</span>
             </h1>
+            <h1 className="text-xl font-bold text-gray-100 mb-2">
+              Buy In:&nbsp;
+              <span className="text-gray-400">{lobby.buy_in}</span>
+            </h1>
             <div className="flex items-center">
               <span className="text-gray-400">Expertise Level:</span>
               <span

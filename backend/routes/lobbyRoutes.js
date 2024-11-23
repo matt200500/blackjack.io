@@ -33,7 +33,9 @@ router.get("/:id/game-state", protect, async (req, res) => {
     }
 
     const [gameState] = await pool.execute(
-      `SELECT gs.*, gp.user_id, gp.cards, gp.seat_position 
+      `SELECT gs.game_id, gs.current_player_turn, gs.button_position, gs.pot_amount,
+              gp.user_id, gp.cards, gp.seat_position, gp.money, gp.is_active, 
+              gp.stepped_back, gp.done_turn
        FROM game_state gs
        LEFT JOIN game_players gp ON gs.game_id = gp.game_id
        WHERE gs.lobby_id = ?
@@ -45,7 +47,14 @@ router.get("/:id/game-state", protect, async (req, res) => {
     if (gameState.length > 0) {
       // Get all players for this game
       const [players] = await pool.execute(
-        `SELECT gp.user_id as id, gp.cards, gp.seat_position
+        `SELECT 
+          gp.user_id as id, 
+          gp.cards, 
+          gp.seat_position,
+          gp.money,
+          gp.is_active,
+          gp.stepped_back,
+          gp.done_turn
          FROM game_players gp
          WHERE gp.game_id = ?`,
         [gameState[0].game_id]
@@ -56,12 +65,17 @@ router.get("/:id/game-state", protect, async (req, res) => {
         id: player.id,
         cards: player.cards ? player.cards.split(",") : [],
         seatPosition: player.seat_position,
+        money: player.money,
+        is_active: player.is_active,
+        stepped_back: player.stepped_back,
+        done_turn: player.done_turn
       }));
 
       res.json({
         gameState: {
           currentTurn: gameState[0].current_player_turn,
           buttonPosition: gameState[0].button_position || 0,
+          potAmount: gameState[0].pot_amount || 0,
           players: formattedPlayers,
         },
       });
