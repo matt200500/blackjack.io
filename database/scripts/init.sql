@@ -27,11 +27,13 @@ CREATE TABLE game_state (
     current_player_turn INT NOT NULL,
     current_round INT NOT NULL DEFAULT 1,  -- 1 or 2 for the two rounds
     round_complete BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    button_position INT NOT NULL DEFAULT 1,
+    pot_amount INT NOT NULL DEFAULT 0
 );
 
 -- Now create lobby table
-CREATE TABLE lobby (
+CREATE TABLE lobbies (
     lobby_id INT AUTO_INCREMENT PRIMARY KEY,
     lobby_name VARCHAR(255) NOT NULL,
     lobby_password VARCHAR(255),
@@ -41,6 +43,7 @@ CREATE TABLE lobby (
     is_open BOOLEAN DEFAULT TRUE,
     locked BOOLEAN DEFAULT FALSE,
     starting_bank INT NOT NULL DEFAULT 1000,
+    buy_in INT NOT NULL DEFAULT 100,
     game_started BOOLEAN DEFAULT FALSE,
     current_game_id INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -50,7 +53,7 @@ CREATE TABLE lobby (
 
 -- Add foreign key to game_state after lobby is created
 ALTER TABLE game_state
-ADD FOREIGN KEY (lobby_id) REFERENCES lobby(lobby_id) ON DELETE CASCADE;
+ADD FOREIGN KEY (lobby_id) REFERENCES lobbies(lobby_id) ON DELETE CASCADE;
 
 -- Create game_players table
 CREATE TABLE game_players (
@@ -61,6 +64,8 @@ CREATE TABLE game_players (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     stepped_back BOOLEAN NOT NULL DEFAULT FALSE,
     card_total INT,                      -- Running total of cards
+    done_turn BOOLEAN NOT NULL DEFAULT FALSE,
+    money INT NOT NULL DEFAULT 1000,
     PRIMARY KEY (game_id, user_id),
     FOREIGN KEY (game_id) REFERENCES game_state(game_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE

@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const { pool, connectDB } = require("./utils/db");
 const userRoutes = require("./routes/userRoutes");
 const lobbyRoutes = require("./routes/lobbyRoutes");
+const gameRoutes = require("./routes/gameRoutes");
 const http = require("http");
 const { Server } = require("socket.io");
 
@@ -37,6 +38,7 @@ app.set("io", io);
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/lobbies", lobbyRoutes);
+app.use("/api/game", gameRoutes);
 
 // Socket.IO event handlers
 io.on("connection", (socket) => {

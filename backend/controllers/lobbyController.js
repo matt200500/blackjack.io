@@ -12,7 +12,7 @@ const createLobby = async (req, res) => {
     try {
       // Create lobby with properly formatted JSON array of user IDs
       const [result] = await connection.execute(
-        `INSERT INTO lobby (
+        `INSERT INTO lobbies (
           lobby_name, 
           lobby_password, 
           expertise_level, 
@@ -34,7 +34,7 @@ const createLobby = async (req, res) => {
       const [lobbies] = await connection.execute(
         `
         SELECT l.*, u.username as host_username
-        FROM lobby l
+        FROM lobbies l
         JOIN users u ON l.lobby_owner = u.user_id
         WHERE l.lobby_id = ?
       `,
@@ -97,7 +97,7 @@ const getLobbies = async (req, res) => {
         END as playerCount,
         u.username as hostUsername,
         u.user_id as hostId
-      FROM lobby l
+      FROM lobbies l
       LEFT JOIN users u ON l.lobby_owner = u.user_id
       WHERE l.is_open = 1
     `;
@@ -164,7 +164,7 @@ const joinLobby = async (req, res) => {
     try {
       // Get lobby
       const [lobbies] = await connection.execute(
-        "SELECT * FROM lobby WHERE lobby_id = ?",
+        "SELECT * FROM lobbies WHERE lobby_id = ?",
         [lobbyId]
       );
 
@@ -202,7 +202,7 @@ const joinLobby = async (req, res) => {
       if (!userIds.includes(userId.toString())) {
         userIds.push(userId.toString());
         await connection.execute(
-          "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
+          "UPDATE lobbies SET user_ids = ? WHERE lobby_id = ?",
           [userIds.join(","), lobbyId]
         );
       }
@@ -254,7 +254,7 @@ const getLobby = async (req, res) => {
     const [lobbies] = await pool.execute(
       `
       SELECT l.*, u.username as host_username
-      FROM lobby l
+      FROM lobbies l
       JOIN users u ON l.lobby_owner = u.user_id
       WHERE l.lobby_id = ?
     `,
@@ -291,6 +291,7 @@ const getLobby = async (req, res) => {
       },
       expertiseLevel: lobby.expertise_level,
       starting_bank: lobby.starting_bank || 1000,
+      buy_in: lobby.buy_in || 100,
       players: players.map((player) => ({
         id: player.user_id,
         username: player.username,
@@ -323,7 +324,7 @@ const leaveLobby = async (req, res) => {
 
     // First check if user is host
     const [lobby] = await connection.query(
-      "SELECT user_ids, lobby_owner, current_game_id FROM lobby WHERE lobby_id = ?",
+      "SELECT user_ids, lobby_owner, current_game_id FROM lobbies WHERE lobby_id = ?",
       [lobbyId]
     );
 
@@ -336,7 +337,7 @@ const leaveLobby = async (req, res) => {
     if (isHost) {
       // Set current_game_id to NULL to break the foreign key constraint
       await connection.query(
-        "UPDATE lobby SET current_game_id = NULL WHERE lobby_id = ?",
+        "UPDATE lobbies SET current_game_id = NULL WHERE lobby_id = ?",
         [lobbyId]
       );
 
@@ -354,7 +355,7 @@ const leaveLobby = async (req, res) => {
       ]);
 
       // Delete the lobby
-      await connection.query("DELETE FROM lobby WHERE lobby_id = ?", [lobbyId]);
+      await connection.query("DELETE FROM lobbies WHERE lobby_id = ?", [lobbyId]);
 
       // Notify all players in the lobby
       io.to(lobbyId).emit("host left lobby", { lobbyId });
@@ -380,7 +381,7 @@ const leaveLobby = async (req, res) => {
       );
 
       await connection.query(
-        "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
+        "UPDATE lobbies SET user_ids = ? WHERE lobby_id = ?",
         [updatedPlayers.join(","), lobbyId]
       );
 
@@ -422,7 +423,7 @@ const removePlayer = async (req, res) => {
       const [lobbies] = await connection.execute(
         `
         SELECT l.*, u.username as host_username
-        FROM lobby l
+        FROM lobbies l
         JOIN users u ON l.lobby_owner = u.user_id
         WHERE l.lobby_id = ?
       `,
@@ -457,7 +458,7 @@ const removePlayer = async (req, res) => {
       const updatedUserIds = userIds.filter((id) => id !== playerId.toString());
 
       await connection.execute(
-        "UPDATE lobby SET user_ids = ? WHERE lobby_id = ?",
+        "UPDATE lobbies SET user_ids = ? WHERE lobby_id = ?",
         [updatedUserIds.join(","), lobbyId]
       );
 
@@ -505,7 +506,7 @@ const removePlayer = async (req, res) => {
 
 const updateLobbySettings = async (req, res) => {
   const { id: lobbyId } = req.params;
-  const { name, password, locked, starting_bank, expertiseLevel } = req.body;
+  const { name, password, locked, starting_bank, expertiseLevel, buy_in } = req.body;
   const userId = req.user.user_id;
   const io = req.app.get("io");
 
@@ -522,7 +523,7 @@ const updateLobbySettings = async (req, res) => {
     try {
       // Get lobby
       const [lobbies] = await connection.execute(
-        "SELECT * FROM lobby WHERE lobby_id = ?",
+        "SELECT * FROM lobbies WHERE lobby_id = ?",
         [lobbyId]
       );
 
@@ -564,12 +565,13 @@ const updateLobbySettings = async (req, res) => {
 
       // Execute update
       const updateResult = await connection.execute(
-        `UPDATE lobby 
+        `UPDATE lobbies 
          SET lobby_name = ?, 
              lobby_password = ?, 
              locked = ?, 
              starting_bank = ?,
-             expertise_level = ?
+             expertise_level = ?,
+             buy_in = ?
          WHERE lobby_id = ?`,
         [
           updatedName,
@@ -577,6 +579,7 @@ const updateLobbySettings = async (req, res) => {
           updatedLocked,
           updatedStartingBank,
           updatedExpertiseLevel,
+          buy_in,
           lobbyId,
         ]
       );
@@ -586,7 +589,7 @@ const updateLobbySettings = async (req, res) => {
       // Get updated lobby info
       const [updatedLobbies] = await connection.execute(
         `SELECT l.*, u.username as host_username
-         FROM lobby l
+         FROM lobbies l
          JOIN users u ON l.lobby_owner = u.user_id
          WHERE l.lobby_id = ?`,
         [lobbyId]
@@ -607,6 +610,7 @@ const updateLobbySettings = async (req, res) => {
         locked: updatedLobbies[0].locked,
         expertiseLevel: updatedLobbies[0].expertise_level,
         starting_bank: updatedLobbies[0].starting_bank,
+        buy_in: updatedLobbies[0].buy_in,
       };
 
       console.log("LOBBY UPDATE - Final response:", updatedLobby);
@@ -635,8 +639,9 @@ const startGame = async (req, res) => {
   const { getRandomCard } = require("../utils/cardUtils");
 
   try {
+    // Get lobby information including buy_in
     const [lobby] = await pool.execute(
-      "SELECT lobby_owner, user_ids FROM lobby WHERE lobby_id = ?",
+      "SELECT lobby_owner, user_ids, starting_bank, buy_in FROM lobbies WHERE lobby_id = ?",
       [lobbyId]
     );
 
@@ -645,7 +650,17 @@ const startGame = async (req, res) => {
     }
 
     const players = lobby[0].user_ids.split(",");
-    console.log("Starting game with players:", players);
+    const startingBank = lobby[0].starting_bank || 1000;
+    const buyIn = lobby[0].buy_in || 100;
+    const potAmount = buyIn * players.length; // Calculate total pot
+
+    console.log("DEBUG - Game Start Values:", {
+      players,
+      startingBank,
+      buyIn,
+      potAmount,
+      rawLobbyData: lobby[0]
+    });
 
     // Deal initial cards to each player
     const playerCards = {};
@@ -660,49 +675,65 @@ const startGame = async (req, res) => {
       `INSERT INTO game_state (
         lobby_id, 
         current_player_turn,
-        current_round
-      ) VALUES (?, ?, ?)`,
-      [lobbyId, 0, 1]
+        current_round,
+        pot_amount
+      ) VALUES (?, ?, ?, ?)`,
+      [lobbyId, 0, 1, potAmount]
     );
 
     const gameId = result.insertId;
 
-    // Insert player cards
+    // Insert player cards with money reduced by buy-in
     for (const playerId of players) {
       await pool.execute(
         `INSERT INTO game_players (
           game_id,
           user_id,
           seat_position,
-          cards
-        ) VALUES (?, ?, ?, ?)`,
+          cards,
+          money,
+          is_active,
+          stepped_back,
+          done_turn
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           gameId,
           playerId,
           players.indexOf(playerId),
           playerCards[playerId].cards.join(","),
+          startingBank - buyIn, // Subtract buy-in from starting bank
+          true,
+          false,
+          false
         ]
       );
     }
 
     // Update lobby status
     await pool.execute(
-      "UPDATE lobby SET game_started = TRUE, current_game_id = ? WHERE lobby_id = ?",
+      "UPDATE lobbies SET game_started = TRUE, current_game_id = ? WHERE lobby_id = ?",
       [gameId, lobbyId]
     );
 
     // Create game state for clients
     const gameStateForClients = {
+      gameId,
       currentTurn: 0,
       currentRound: 1,
+      potAmount,
       players: players.map((playerId) => ({
         id: playerId,
         cards: playerCards[playerId].cards,
         seatPosition: players.indexOf(playerId),
+        money: startingBank - buyIn,
+        is_active: true,
+        stepped_back: false,
+        done_turn: false
       })),
     };
 
-    console.log("Broadcasting game state:", gameStateForClients);
+    console.log("DEBUG - Final game state being sent:", gameStateForClients);
+
     io.to(lobbyId.toString()).emit("game started", gameStateForClients);
     res.status(200).json({ success: true, gameState: gameStateForClients });
   } catch (error) {

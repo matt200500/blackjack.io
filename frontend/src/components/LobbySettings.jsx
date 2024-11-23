@@ -20,6 +20,7 @@ const LobbySettings = ({ lobby, onUpdate }) => {
   const [expertiseLevel, setExpertiseLevel] = useState(
     lobby?.expertiseLevel || ""
   );
+  const [buy_in, setBuyIn] = useState(lobby?.buy_in || "");
 
   useEffect(() => {
     console.log("Lobby prop:", lobby);
@@ -27,6 +28,7 @@ const LobbySettings = ({ lobby, onUpdate }) => {
     setStartingBank(lobby?.starting_bank || "");
     setExpertiseLevel(lobby?.expertiseLevel || "");
     setLocked(lobby?.locked || false);
+    setBuyIn(lobby?.buy_in || "");
   }, [lobby]);
 
   useEffect(() => {
@@ -39,6 +41,15 @@ const LobbySettings = ({ lobby, onUpdate }) => {
     }
   }, [isEditing]);
 
+  useEffect(() => {
+    const maxBuyIn = Math.floor(starting_bank * 0.25);
+    if (buy_in > maxBuyIn) {
+      setBuyIn(maxBuyIn);
+      setError(`Buy-in automatically adjusted to maximum allowed value (${maxBuyIn})`);
+      setTimeout(() => setError(""), 3000);
+    }
+  }, [starting_bank]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -50,6 +61,7 @@ const LobbySettings = ({ lobby, onUpdate }) => {
           starting_bank,
           expertiseLevel,
           locked,
+          buy_in,
         }
       );
       onUpdate(response.data);
@@ -167,6 +179,49 @@ const LobbySettings = ({ lobby, onUpdate }) => {
             <option value="intermediate">Intermediate</option>
             <option value="expert">Expert</option>
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">
+            Buy-in
+            <span className="text-gray-400 ml-1 font-normal">
+              (minimum: 100, maximum: {Math.floor(starting_bank * 0.25)})
+            </span>
+          </label>
+          <input
+            type="text"
+            pattern="[0-9]*"
+            inputMode="numeric"
+            min="100"
+            max={Math.floor(starting_bank * 0.25)}
+            value={buy_in}
+            onBlur={(e) => {
+              const value = Number(e.target.value);
+              const maxBuyIn = Math.floor(starting_bank * 0.25);
+              if (value < 100) {
+                setBuyIn(100);
+              } else if (value > maxBuyIn) {
+                setBuyIn(maxBuyIn);
+                setError(`Buy-in cannot exceed ${maxBuyIn} (25% of starting bank)`);
+                setTimeout(() => setError(""), 3000);
+              }
+            }}
+            onChange={(e) => {
+              if (e.target.value === "" || /^[0-9]+$/.test(e.target.value)) {
+                const newValue = Number(e.target.value);
+                const maxBuyIn = Math.floor(starting_bank * 0.25);
+                if (newValue <= maxBuyIn) {
+                  setBuyIn(newValue);
+                } else {
+                  setBuyIn(maxBuyIn);
+                  setError(`Buy-in cannot exceed ${maxBuyIn} (25% of starting bank)`);
+                  setTimeout(() => setError(""), 3000);
+                }
+              }
+            }}
+            className="w-full p-2.5 rounded bg-gray-800/50 text-white placeholder-gray-400 border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors duration-200"
+            required
+          />
         </div>
 
         <div className="flex items-center">
