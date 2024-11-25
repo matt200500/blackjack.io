@@ -58,6 +58,7 @@ const Game = ({ players, lobby, user }) => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [playersActed, setPlayersActed] = useState(new Set());
   const socketRef = useRef();
+  const [lastActionRound, setLastActionRound] = useState(null);
 
   // Add prop validation
   useEffect(() => {
@@ -232,6 +233,7 @@ const Game = ({ players, lobby, user }) => {
         console.log("Skip successful:", response.data);
         if (response.data.gameState) {
           setGameState(response.data.gameState);
+          setLastActionRound(response.data.gameState.currentRound);
         }
       }
     } catch (error) {
@@ -272,6 +274,7 @@ const Game = ({ players, lobby, user }) => {
         console.log("Hit successful:", response.data);
         if (response.data.gameState) {
           setGameState(response.data.gameState);
+          setLastActionRound(response.data.gameState.currentRound);
         }
       }
     } catch (error) {
@@ -370,6 +373,49 @@ const Game = ({ players, lobby, user }) => {
       });
     }
   }, [gameState]);
+
+  const areButtonsDisabled = () => {
+    return lastActionRound === gameState?.currentRound;
+  };
+
+  // Add this useEffect for continuous polling
+  useEffect(() => {
+    if (!lobby?.id) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await api.get(`/api/lobbies/${lobby.id}/game-state`);
+        
+        if (response.data.gameState) {
+          // Preserve the current round or increment it if certain conditions are met
+          setGameState(prevState => {
+            const newState = {
+              ...prevState,
+              ...response.data.gameState,
+              currentRound: prevState?.currentRound || 1, // Preserve existing round or default to 1
+              gameId: lobby.id // Ensure we have the gameId
+            };
+
+            // If all players have acted (you'll need to define this logic)
+            const allPlayersActed = response.data.gameState.players.every(
+              player => player.done_turn || !player.is_active
+            );
+
+            // If all players have acted, increment the round
+            if (allPlayersActed && prevState?.currentRound) {
+              newState.currentRound = prevState.currentRound + 1;
+            }
+
+            return newState;
+          });
+        }
+      } catch (error) {
+        console.error('Error polling game state:', error);
+      }
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
+  }, [lobby?.id]);
 
   return (
     <div className="flex justify-center">
@@ -503,14 +549,18 @@ const Game = ({ players, lobby, user }) => {
       {/* Add these buttons just before the Chat Toggle Button */}
       <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 flex gap-4 z-50">
         <button
-          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105"
+          className={`bg-green-600 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105
+            ${areButtonsDisabled() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700'}`}
           onClick={handleHit}
+          disabled={areButtonsDisabled()}
         >
           Hit
         </button>
         <button
-          className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105"
+          className={`bg-red-600 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105
+            ${areButtonsDisabled() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-700'}`}
           onClick={handleSkip}
+          disabled={areButtonsDisabled()}
         >
           Skip
         </button>
