@@ -196,21 +196,30 @@ const Game = ({ players, lobby, user }) => {
 
   const handleSkip = async () => {
     try {
+      const currentPlayer = gameState.players?.find(p => p.id === user.id);
+      
+      // Get the token
       const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `http://localhost:3001/api/game/skip`,
-        {
-          gameId: gameState.gameId,
-          userId: user.user_id,
-          lobbyId: lobby.id,
-          seatPosition: gameState.players.find(p => p.id === user.user_id)?.seatPosition
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const requestData = {
+        gameId: lobby.id,
+        userId: Number(user.id),
+        lobbyId: Number(lobby.id),
+        seatPosition: Number(currentPlayer.seatPosition)
+      };
+      
+      console.log('Sending skip request with data:', requestData);
+
+      // Include the token in the headers
+      const response = await api.post('/api/game/skip', requestData, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-      );
+      });
       
       if (response.data.success) {
         console.log("Skip successful:", response.data);
@@ -219,7 +228,54 @@ const Game = ({ players, lobby, user }) => {
         }
       }
     } catch (error) {
-      console.error("Error skipping:", error);
+      if (error.response?.status === 401) {
+        console.error("Authentication error - try logging in again");
+        // Optionally redirect to login page or refresh token
+        // window.location.href = '/login';
+      } else {
+        console.error("Skip request failed:", error);
+        if (error.response?.data) {
+          console.error("Server Error Details:", error.response.data);
+        }
+      }
+    }
+  };
+
+  const handleHit = async () => {
+    try {
+      const currentPlayer = gameState.players?.find(p => p.id === user.id);
+      
+      if (!currentPlayer) {
+        console.error('Current player not found in game state');
+        return;
+      }
+
+      const requestData = {
+        gameId: lobby.id,
+        userId: Number(user.id),
+        lobbyId: Number(lobby.id),
+        seatPosition: Number(currentPlayer.seatPosition)
+      };
+      
+      console.log('Sending hit request with data:', requestData);
+
+      const response = await api.post('/api/game/hit', requestData);
+      
+      if (response.data.success) {
+        console.log("Hit successful:", response.data);
+        if (response.data.gameState) {
+          setGameState(response.data.gameState);
+        }
+      }
+    } catch (error) {
+      if (error.response?.status === 401) {
+        console.error("Authentication error - you may need to log in again");
+      } else {
+        console.error("Hit request failed:", error);
+        if (error.response?.data) {
+          console.error("Server Error Details:", error.response.data);
+        }
+      }
     }
   };
 
@@ -282,10 +338,23 @@ const Game = ({ players, lobby, user }) => {
                 <div className="relative flex flex-col items-center justify-center h-full">
                   <div className="absolute -top-14 flex gap-1">
                     {playerData?.cards && (
-                      <>
-                        <VisibleCard card={playerData.cards[0]} />
-                        <HiddenCard />
-                      </>
+                      <div className="flex gap-1">
+                        {/* Show all cards for current user, only first card for others */}
+                        {playerData.id === user.id ? (
+                          // Current user sees all their cards
+                          playerData.cards.map((card, cardIndex) => (
+                            <VisibleCard key={cardIndex} card={card} />
+                          ))
+                        ) : (
+                          // Other players' cards are partially hidden
+                          <>
+                            <VisibleCard card={playerData.cards[0]} />
+                            {playerData.cards.slice(1).map((_, cardIndex) => (
+                              <HiddenCard key={cardIndex + 1} />
+                            ))}
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center mb-1">
@@ -344,6 +413,7 @@ const Game = ({ players, lobby, user }) => {
       <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 flex gap-4 z-50">
         <button
           className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105"
+          onClick={handleHit}
         >
           Hit
         </button>

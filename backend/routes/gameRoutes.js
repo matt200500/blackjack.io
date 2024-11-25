@@ -7,11 +7,21 @@ router.post('/skip', protect, async (req, res) => {
   const { gameId, userId, lobbyId, seatPosition } = req.body;
   const io = req.app.get('io');
 
+  if (!gameId || !userId || !lobbyId || seatPosition === undefined) {
+    console.log('Received invalid data:', { gameId, userId, lobbyId, seatPosition });
+    return res.status(400).json({
+      success: false,
+      message: 'Missing required data'
+    });
+  }
+
   try {
     const connection = await pool.getConnection();
     await connection.beginTransaction();
 
     try {
+      console.log('Executing update with:', { gameId, userId });
+      
       // Update player's status
       await connection.execute(
         `UPDATE game_players 
@@ -103,5 +113,123 @@ router.post('/skip', protect, async (req, res) => {
     });
   }
 });
+
+router.post('/hit', protect, async (req, res) => {
+  const { gameId, userId, lobbyId, seatPosition } = req.body;
+  const io = req.app.get('io');
+
+  if (!gameId || !userId || !lobbyId || seatPosition === undefined) {
+    console.log('Missing required data:', { gameId, userId, lobbyId, seatPosition });
+    return res.status(400).json({
+      success: false,
+      message: 'Missing required data'
+    });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Get current player's cards
+      const [playerCards] = await connection.execute(
+        `SELECT cards FROM game_players WHERE game_id = ? AND user_id = ?`,
+        [gameId, userId]
+      );
+
+      // Generate a new card
+      const newCard = generateCard(); // You'll need to implement this function
+      const currentCards = playerCards[0].cards ? playerCards[0].cards.split(',') : [];
+      const updatedCards = [...currentCards, newCard].join(',');
+
+      // Update player's cards and set done_turn to true
+      await connection.execute(
+        `UPDATE game_players 
+         SET cards = ?,
+             done_turn = TRUE
+         WHERE game_id = ? AND user_id = ?`,
+        [updatedCards, gameId, userId]
+      );
+
+      // Get current game state
+      const [gameState] = await connection.execute(
+        `SELECT * FROM game_state WHERE game_id = ?`,
+        [gameId]
+      );
+
+      // Get all players
+      const [players] = await connection.execute(
+        `SELECT user_id, seat_position, stepped_back, done_turn, cards, money, is_active
+         FROM game_players 
+         WHERE game_id = ? 
+         ORDER BY seat_position`,
+        [gameId]
+      );
+
+      // Find next active player
+      let nextTurn = gameState[0].current_player_turn;
+      const activePlayers = players.filter(p => !p.stepped_back);
+      if (activePlayers.length > 0) {
+        const currentPlayerIndex = activePlayers.findIndex(p => p.seat_position === nextTurn);
+        nextTurn = activePlayers[(currentPlayerIndex + 1) % activePlayers.length]?.seat_position ?? nextTurn;
+      }
+
+      // Update game state with next player's turn
+      await connection.execute(
+        `UPDATE game_state 
+         SET current_player_turn = ?
+         WHERE game_id = ?`,
+        [nextTurn, gameId]
+      );
+
+      // Format the response
+      const formattedGameState = {
+        gameId,
+        currentTurn: nextTurn,
+        potAmount: gameState[0].pot_amount,
+        players: players.map(player => ({
+          id: player.user_id,
+          seatPosition: player.seat_position,
+          cards: player.cards ? player.cards.split(',') : [],
+          money: player.money,
+          is_active: player.is_active,
+          stepped_back: player.stepped_back,
+          done_turn: player.done_turn
+        }))
+      };
+
+      await connection.commit();
+
+      // Emit updated game state to all players
+      io.to(lobbyId.toString()).emit('game state updated', formattedGameState);
+
+      res.json({
+        success: true,
+        gameState: formattedGameState
+      });
+
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+  } catch (error) {
+    console.error('Error handling hit:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to process hit action',
+      error: error.message
+    });
+  }
+});
+
+// Helper function to generate a new card
+function generateCard() {
+  const cards = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+  const randomIndex = Math.floor(Math.random() * cards.length);
+  return cards[randomIndex];
+}
 
 module.exports = router;
