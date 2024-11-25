@@ -40,8 +40,15 @@ const ChatToggleButton = ({ onClick, isOpen }) => (
 const api = axios.create({
   baseURL: 'http://localhost:3001',
   headers: {
-    Authorization: `Bearer ${localStorage.getItem('token')}`
+    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+    'Content-Type': 'application/json'
   }
+});
+
+// Add this to test the API configuration
+console.log('API Configuration:', {
+  baseURL: api.defaults.baseURL,
+  headers: api.defaults.headers
 });
 
 const Game = ({ players, lobby, user }) => {
@@ -87,6 +94,16 @@ const Game = ({ players, lobby, user }) => {
     fetchGameState();
   }, [lobby.id]);
 
+  // Add a useEffect to log gameState changes
+  useEffect(() => {
+    if (gameState) {
+      console.log('Game state updated:', {
+        currentRound: gameState.currentRound,
+        fullState: gameState
+      });
+    }
+  }, [gameState]);
+
   // Socket connection
   useEffect(() => {
     if (!user) return; // Add safety check
@@ -129,22 +146,12 @@ const Game = ({ players, lobby, user }) => {
   useEffect(() => {
     if (gameState) {
       console.log("Game state updated:", {
-        username: players.find((p) => p.id === user.user_id)?.username,
-        gameState,
-      });
-    }
-  }, [gameState, players, user.user_id]);
-
-  // Add another useEffect to log when gameState changes
-  useEffect(() => {
-    if (gameState) {
-      console.log("Current game state:", {
         gameState,
         players: gameState.players,
-        seats,
+        seats
       });
       
-      // Add detailed player logging THIS IS FOR DEBUGGING To UNDERSTAND THIS
+      // Add detailed player logging
       console.log("Detailed player information:");
       gameState.players?.forEach((player, index) => {
         console.log(`Player ${index + 1}:`, {
@@ -156,7 +163,7 @@ const Game = ({ players, lobby, user }) => {
           done_turn: player.done_turn,
           allProperties: player // This will show all available properties
         });
-      }); // END OF DEBUGGING
+      });
     }
   }, [gameState, seats]);
 
@@ -290,17 +297,101 @@ const Game = ({ players, lobby, user }) => {
     };
   }, []);
 
+  // Add this new useEffect for polling
+  useEffect(() => {
+    console.log('Current gameState:', gameState);
+    if (!gameState?.gameId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        // Log the full URL being called
+        const url = `/api/game/check-round-status/${gameState.gameId}`;
+        console.log('Polling URL:', url);
+        console.log('Full gameState:', gameState);
+        
+        const response = await api.get(url);
+        
+        if (response.data.success && response.data.roundComplete) {
+          console.log('Round completed, state will update automatically via socket');
+        }
+      } catch (error) {
+        console.error('Error polling round status:', error);
+        if (error.response) {
+          console.error('Error details:', {
+            status: error.response.status,
+            data: error.response.data,
+            headers: error.response.headers
+          });
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [gameState?.gameId]);
+
+  // Add this useEffect for real-time updates
+  useEffect(() => {
+    if (!gameState?.gameId) return;
+
+    // Set up polling interval
+    const updateInterval = setInterval(async () => {
+      try {
+        // Poll for game state updates
+        const response = await api.get(`/api/game/check-round-status/${gameState.gameId}`);
+        
+        if (response.data.success) {
+          console.log('Game state poll response:', response.data);
+        }
+      } catch (error) {
+        console.error('Error polling game state:', error);
+      }
+    }, 1000); // Poll every second
+
+    // Socket listener for game state updates
+    socketRef.current.on('game state updated', (updatedGameState) => {
+      console.log('Received updated game state:', updatedGameState);
+      setGameState(updatedGameState);
+    });
+
+    // Cleanup function
+    return () => {
+      clearInterval(updateInterval);
+      socketRef.current.off('game state updated');
+    };
+  }, [gameState?.gameId]);
+
+  // Add another useEffect to log when gameState changes
+  useEffect(() => {
+    if (gameState) {
+      console.log("Game state updated:", {
+        currentRound: gameState.currentRound,
+        players: gameState.players,
+        currentTurn: gameState.currentTurn
+      });
+    }
+  }, [gameState]);
+
   return (
     <div className="flex justify-center">
       {/* Game table - Only show in landscape or on larger screens */}
       <div className="hidden md:block landscape:block relative w-full aspect-[16/9] max-w-7xl bg-green-800/90 rounded-xl border-4 border-gray-800 overflow-hidden">
         {/* Blackjack Table */}
         <div className="absolute inset-8 sm:inset-12 md:inset-16 bg-green-700/80 rounded-[100%] border-4 sm:border-6 md:border-8 border-gray-800">
-          {/* Center pot area */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
-            <span className="text-white text-sm sm:text-base md:text-lg font-bold whitespace-nowrap">
-              Pot: ${gameState?.potAmount || 0}
-            </span>
+          {/* Center pot and round area */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
+            {/* Pot bubble */}
+            <div className="bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
+              <span className="text-white text-sm sm:text-base md:text-lg font-bold whitespace-nowrap">
+                Pot: ${gameState?.potAmount || 0}
+              </span>
+            </div>
+            
+            {/* Round bubble */}
+            <div className="bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
+              <span className="text-white text-sm sm:text-base md:text-lg font-bold whitespace-nowrap">
+                Round: {gameState?.currentRound || 1}
+              </span>
+            </div>
           </div>
         </div>
 

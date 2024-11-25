@@ -77,7 +77,7 @@ CREATE TABLE game_actions (
     game_id INT NOT NULL,
     user_id INT NOT NULL,
     action_type VARCHAR(50) NOT NULL,    -- hit, step_back
-    round INT NOT NULL,                  -- 1 or 2
+    round INT NOT NULL DEFAULT 1,         -- 1 or 2
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (game_id) REFERENCES game_state(game_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
