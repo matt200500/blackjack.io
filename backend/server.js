@@ -15,7 +15,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:5173",
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
   },
 });
 
@@ -35,10 +36,25 @@ connectDB();
 // Make io accessible to our router
 app.set("io", io);
 
+// Add this before your routes
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/lobbies", lobbyRoutes);
 app.use("/api/game", gameRoutes);
+
+// Add this after your routes to catch 404s
+app.use((req, res, next) => {
+  console.log('404 Not Found:', req.method, req.url);
+  res.status(404).json({ 
+    success: false, 
+    message: `Route not found: ${req.method} ${req.url}` 
+  });
+});
 
 // Socket.IO event handlers
 io.on("connection", (socket) => {

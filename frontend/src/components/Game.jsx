@@ -40,8 +40,15 @@ const ChatToggleButton = ({ onClick, isOpen }) => (
 const api = axios.create({
   baseURL: 'http://localhost:3001',
   headers: {
-    Authorization: `Bearer ${localStorage.getItem('token')}`
+    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+    'Content-Type': 'application/json'
   }
+});
+
+// Add this to test the API configuration
+console.log('API Configuration:', {
+  baseURL: api.defaults.baseURL,
+  headers: api.defaults.headers
 });
 
 const Game = ({ players, lobby, user }) => {
@@ -51,6 +58,7 @@ const Game = ({ players, lobby, user }) => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [playersActed, setPlayersActed] = useState(new Set());
   const socketRef = useRef();
+  const [lastActionRound, setLastActionRound] = useState(null);
 
   // Add prop validation
   useEffect(() => {
@@ -86,6 +94,16 @@ const Game = ({ players, lobby, user }) => {
 
     fetchGameState();
   }, [lobby.id]);
+
+  // Add a useEffect to log gameState changes
+  useEffect(() => {
+    if (gameState) {
+      console.log('Game state updated:', {
+        currentRound: gameState.currentRound,
+        fullState: gameState
+      });
+    }
+  }, [gameState]);
 
   // Socket connection
   useEffect(() => {
@@ -129,22 +147,12 @@ const Game = ({ players, lobby, user }) => {
   useEffect(() => {
     if (gameState) {
       console.log("Game state updated:", {
-        username: players.find((p) => p.id === user.user_id)?.username,
-        gameState,
-      });
-    }
-  }, [gameState, players, user.user_id]);
-
-  // Add another useEffect to log when gameState changes
-  useEffect(() => {
-    if (gameState) {
-      console.log("Current game state:", {
         gameState,
         players: gameState.players,
-        seats,
+        seats
       });
       
-      // Add detailed player logging THIS IS FOR DEBUGGING To UNDERSTAND THIS
+      // Add detailed player logging
       console.log("Detailed player information:");
       gameState.players?.forEach((player, index) => {
         console.log(`Player ${index + 1}:`, {
@@ -156,7 +164,7 @@ const Game = ({ players, lobby, user }) => {
           done_turn: player.done_turn,
           allProperties: player // This will show all available properties
         });
-      }); // END OF DEBUGGING
+      });
     }
   }, [gameState, seats]);
 
@@ -196,30 +204,88 @@ const Game = ({ players, lobby, user }) => {
 
   const handleSkip = async () => {
     try {
+      const currentPlayer = gameState.players?.find(p => p.id === user.id);
+      
+      // Get the token
       const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `http://localhost:3001/api/game/skip`,
-        {
-          gameId: gameState.gameId,
-          userId: user.user_id,
-          lobbyId: lobby.id,
-          seatPosition: gameState.players.find(p => p.id === user.user_id)?.seatPosition
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      const requestData = {
+        gameId: lobby.id,
+        userId: Number(user.id),
+        lobbyId: Number(lobby.id),
+        seatPosition: Number(currentPlayer.seatPosition)
+      };
+      
+      console.log('Sending skip request with data:', requestData);
+
+      // Include the token in the headers
+      const response = await api.post('/api/game/skip', requestData, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-      );
+      });
       
       if (response.data.success) {
         console.log("Skip successful:", response.data);
         if (response.data.gameState) {
           setGameState(response.data.gameState);
+          setLastActionRound(response.data.gameState.currentRound);
         }
       }
     } catch (error) {
-      console.error("Error skipping:", error);
+      if (error.response?.status === 401) {
+        console.error("Authentication error - try logging in again");
+        // Optionally redirect to login page or refresh token
+        // window.location.href = '/login';
+      } else {
+        console.error("Skip request failed:", error);
+        if (error.response?.data) {
+          console.error("Server Error Details:", error.response.data);
+        }
+      }
+    }
+  };
+
+  const handleHit = async () => {
+    try {
+      const currentPlayer = gameState.players?.find(p => p.id === user.id);
+      
+      if (!currentPlayer) {
+        console.error('Current player not found in game state');
+        return;
+      }
+
+      const requestData = {
+        gameId: lobby.id,
+        userId: Number(user.id),
+        lobbyId: Number(lobby.id),
+        seatPosition: Number(currentPlayer.seatPosition)
+      };
+      
+      console.log('Sending hit request with data:', requestData);
+
+      const response = await api.post('/api/game/hit', requestData);
+      
+      if (response.data.success) {
+        console.log("Hit successful:", response.data);
+        if (response.data.gameState) {
+          setGameState(response.data.gameState);
+          setLastActionRound(response.data.gameState.currentRound);
+        }
+      }
+    } catch (error) {
+      if (error.response?.status === 401) {
+        console.error("Authentication error - you may need to log in again");
+      } else {
+        console.error("Hit request failed:", error);
+        if (error.response?.data) {
+          console.error("Server Error Details:", error.response.data);
+        }
+      }
     }
   };
 
@@ -234,17 +300,144 @@ const Game = ({ players, lobby, user }) => {
     };
   }, []);
 
+  // Add this new useEffect for polling
+  useEffect(() => {
+    console.log('Current gameState:', gameState);
+    if (!gameState?.gameId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        // Log the full URL being called
+        const url = `/api/game/check-round-status/${gameState.gameId}`;
+        console.log('Polling URL:', url);
+        console.log('Full gameState:', gameState);
+        
+        const response = await api.get(url);
+        
+        if (response.data.success && response.data.roundComplete) {
+          console.log('Round completed, state will update automatically via socket');
+        }
+      } catch (error) {
+        console.error('Error polling round status:', error);
+        if (error.response) {
+          console.error('Error details:', {
+            status: error.response.status,
+            data: error.response.data,
+            headers: error.response.headers
+          });
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [gameState?.gameId]);
+
+  // Add this useEffect for real-time updates
+  useEffect(() => {
+    if (!gameState?.gameId) return;
+
+    // Set up polling interval
+    const updateInterval = setInterval(async () => {
+      try {
+        // Poll for game state updates
+        const response = await api.get(`/api/game/check-round-status/${gameState.gameId}`);
+        
+        if (response.data.success) {
+          console.log('Game state poll response:', response.data);
+        }
+      } catch (error) {
+        console.error('Error polling game state:', error);
+      }
+    }, 1000); // Poll every second
+
+    // Socket listener for game state updates
+    socketRef.current.on('game state updated', (updatedGameState) => {
+      console.log('Received updated game state:', updatedGameState);
+      setGameState(updatedGameState);
+    });
+
+    // Cleanup function
+    return () => {
+      clearInterval(updateInterval);
+      socketRef.current.off('game state updated');
+    };
+  }, [gameState?.gameId]);
+
+  // Add another useEffect to log when gameState changes
+  useEffect(() => {
+    if (gameState) {
+      console.log("Game state updated:", {
+        currentRound: gameState.currentRound,
+        players: gameState.players,
+        currentTurn: gameState.currentTurn
+      });
+    }
+  }, [gameState]);
+
+  const areButtonsDisabled = () => {
+    return lastActionRound === gameState?.currentRound;
+  };
+
+  // Add this useEffect for continuous polling
+  useEffect(() => {
+    if (!lobby?.id) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await api.get(`/api/lobbies/${lobby.id}/game-state`);
+        
+        if (response.data.gameState) {
+          // Preserve the current round or increment it if certain conditions are met
+          setGameState(prevState => {
+            const newState = {
+              ...prevState,
+              ...response.data.gameState,
+              currentRound: prevState?.currentRound || 1, // Preserve existing round or default to 1
+              gameId: lobby.id // Ensure we have the gameId
+            };
+
+            // If all players have acted (you'll need to define this logic)
+            const allPlayersActed = response.data.gameState.players.every(
+              player => player.done_turn || !player.is_active
+            );
+
+            // If all players have acted, increment the round
+            if (allPlayersActed && prevState?.currentRound) {
+              newState.currentRound = prevState.currentRound + 1;
+            }
+
+            return newState;
+          });
+        }
+      } catch (error) {
+        console.error('Error polling game state:', error);
+      }
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
+  }, [lobby?.id]);
+
   return (
     <div className="flex justify-center">
       {/* Game table - Only show in landscape or on larger screens */}
       <div className="hidden md:block landscape:block relative w-full aspect-[16/9] max-w-7xl bg-green-800/90 rounded-xl border-4 border-gray-800 overflow-hidden">
         {/* Blackjack Table */}
         <div className="absolute inset-8 sm:inset-12 md:inset-16 bg-green-700/80 rounded-[100%] border-4 sm:border-6 md:border-8 border-gray-800">
-          {/* Center pot area */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
-            <span className="text-white text-sm sm:text-base md:text-lg font-bold whitespace-nowrap">
-              Pot: ${gameState?.potAmount || 0}
-            </span>
+          {/* Center pot and round area */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
+            {/* Pot bubble */}
+            <div className="bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
+              <span className="text-white text-sm sm:text-base md:text-lg font-bold whitespace-nowrap">
+                Pot: ${gameState?.potAmount || 0}
+              </span>
+            </div>
+            
+            {/* Round bubble */}
+            <div className="bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
+              <span className="text-white text-sm sm:text-base md:text-lg font-bold whitespace-nowrap">
+                Round: {gameState?.currentRound || 1}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -282,10 +475,23 @@ const Game = ({ players, lobby, user }) => {
                 <div className="relative flex flex-col items-center justify-center h-full">
                   <div className="absolute -top-14 flex gap-1">
                     {playerData?.cards && (
-                      <>
-                        <VisibleCard card={playerData.cards[0]} />
-                        <HiddenCard />
-                      </>
+                      <div className="flex gap-1">
+                        {/* Show all cards for current user, only first card for others */}
+                        {playerData.id === user.id ? (
+                          // Current user sees all their cards
+                          playerData.cards.map((card, cardIndex) => (
+                            <VisibleCard key={cardIndex} card={card} />
+                          ))
+                        ) : (
+                          // Other players' cards are partially hidden
+                          <>
+                            <VisibleCard card={playerData.cards[0]} />
+                            {playerData.cards.slice(1).map((_, cardIndex) => (
+                              <HiddenCard key={cardIndex + 1} />
+                            ))}
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center mb-1">
@@ -343,13 +549,18 @@ const Game = ({ players, lobby, user }) => {
       {/* Add these buttons just before the Chat Toggle Button */}
       <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 flex gap-4 z-50">
         <button
-          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105"
+          className={`bg-green-600 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105
+            ${areButtonsDisabled() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700'}`}
+          onClick={handleHit}
+          disabled={areButtonsDisabled()}
         >
           Hit
         </button>
         <button
-          className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105"
+          className={`bg-red-600 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105
+            ${areButtonsDisabled() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-700'}`}
           onClick={handleSkip}
+          disabled={areButtonsDisabled()}
         >
           Skip
         </button>
