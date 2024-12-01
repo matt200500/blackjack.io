@@ -316,7 +316,13 @@ const Game = ({ players, lobby, user }) => {
         console.log('Polling URL:', url);
         console.log('Full gameState:', gameState);
         
-        const response = await api.get(url);
+        const token = localStorage.getItem('token');
+
+        const response = await api.get(url, {
+          headers: {
+            Authorization: `Bearer ${token}` // Include the token in the headers
+          }
+        });
         
         if (response.data.success && response.data.roundComplete) {
           console.log('Round completed, state will update automatically via socket');
@@ -344,7 +350,13 @@ const Game = ({ players, lobby, user }) => {
     const updateInterval = setInterval(async () => {
       try {
         // Poll for game state updates
-        const response = await api.get(`/api/game/check-round-status/${gameState.gameId}`);
+        const token = localStorage.getItem('token');
+
+        const response = await api.get(`/api/game/check-round-status/${gameState.gameId}`, {
+          headers: {
+            Authorization: `Bearer ${token}` // Include the token in the headers
+          }
+        });
         
         if (response.data.success) {
           console.log('Game state poll response:', response.data);
@@ -388,7 +400,13 @@ const Game = ({ players, lobby, user }) => {
 
     const pollInterval = setInterval(async () => {
       try {
-        const response = await api.get(`/api/lobbies/${lobby.id}/game-state`);
+        const token = localStorage.getItem('token');
+        
+        const response = await api.get(`/api/lobbies/${lobby.id}/game-state`, {
+          headers: {
+            Authorization: `Bearer ${token}` // Include the token in the headers
+          }
+        });
         
         if (response.data.gameState) {
           // Preserve the current round or increment it if certain conditions are met
