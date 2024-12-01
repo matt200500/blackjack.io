@@ -268,7 +268,14 @@ const Game = ({ players, lobby, user }) => {
       
       console.log('Sending hit request with data:', requestData);
 
-      const response = await api.post('/api/game/hit', requestData);
+      // Assuming you have a function to get the auth token
+      const token = localStorage.getItem('token'); // or however you store it
+
+      const response = await api.post('/api/game/hit', requestData, {
+        headers: {
+          Authorization: `Bearer ${token}` // Include the token in the headers
+        }
+      });
       
       if (response.data.success) {
         console.log("Hit successful:", response.data);
@@ -278,13 +285,10 @@ const Game = ({ players, lobby, user }) => {
         }
       }
     } catch (error) {
-      if (error.response?.status === 401) {
+      console.error("Hit request failed:", error);
+      if (error.response && error.response.status === 401) {
         console.error("Authentication error - you may need to log in again");
-      } else {
-        console.error("Hit request failed:", error);
-        if (error.response?.data) {
-          console.error("Server Error Details:", error.response.data);
-        }
+        // Optionally, redirect to login or show a message
       }
     }
   };
