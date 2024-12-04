@@ -130,21 +130,12 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
   useEffect(() => {
     if (!user) return; // Add safety check
 
-    // console.log("Initializing socket connection for lobby:", {
-    //   lobbyId: lobby.id,
-    //   userId: user.user_id,
-    //   username: user.username,
-    // });
-
     socketRef.current = io("http://localhost:3001");
     socketRef.current.emit("join lobby", lobby.id);
 
-    socketRef.current.on("connect", () => {
-      // console.log("Socket connected with ID:", socketRef.current.id);
-    });
+    socketRef.current.on("connect", () => {});
 
     socketRef.current.on("game started", (data) => {
-      // console.log("Game started event received:", data);
       setGameState(data);
       setGameEnded(false); // Reset game ended state
       setWinners([]); // Clear previous winners
@@ -155,18 +146,7 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
   useEffect(() => {
     if (gameState) {
       // Add detailed player logging
-      // console.log("Detailed player information:");
-      gameState.players?.forEach((player, index) => {
-        // console.log(`Player ${index + 1}:`, {
-        //   seatPosition: player.seatPosition,
-        //   cards: player.cards,
-        //   money: player.money,
-        //   is_active: player.is_active,
-        //   stepped_back: player.stepped_back,
-        //   done_turn: player.done_turn,
-        //   allProperties: player, // This will show all available properties
-        // });
-      });
+      gameState.players?.forEach((player, index) => {});
     }
   }, [gameState, seats]);
 
@@ -186,14 +166,7 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
 
   // Debug render
   if (gameState) {
-    // console.log("Rendering with game state:", gameState);
-    seats.forEach((player, index) => {
-      // console.log(`Seat ${index}:`, {
-      //   player: player?.username || "empty",
-      //   hasButton: index === gameState.buttonPosition,
-      //   isCurrentTurn: index === gameState.currentTurn,
-      // });
-    });
+    seats.forEach((player, index) => {});
   }
 
   if (error) {
@@ -222,8 +195,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
         seatPosition: Number(currentPlayer.seatPosition),
       };
 
-      // console.log("Sending skip request with data:", requestData);
-
       // Include the token in the headers
       const response = await api.post("/api/game/skip", requestData, {
         headers: {
@@ -232,7 +203,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
       });
 
       if (response.data.success) {
-        // console.log("Skip successful:", response.data);
         if (response.data.gameState) {
           setGameState(response.data.gameState);
           setLastActionRound(response.data.gameState.currentRound);
@@ -241,8 +211,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
     } catch (error) {
       if (error.response?.status === 401) {
         console.error("Authentication error - try logging in again");
-        // Optionally redirect to login page or refresh token
-        // window.location.href = '/login';
       } else {
         console.error("Skip request failed:", error);
         if (error.response?.data) {
@@ -265,7 +233,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
       );
 
       if (response.data.success) {
-        // console.log("Check game state response:", response.data);
       }
     } catch (error) {
       console.error("Error checking game state:", error);
@@ -288,8 +255,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
         seatPosition: Number(currentPlayer.seatPosition),
       };
 
-      // console.log("Sending hit request with data:", requestData);
-
       // Assuming you have a function to get the auth token
       const token = localStorage.getItem("token"); // or however you store it
 
@@ -300,7 +265,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
       });
 
       if (response.data.success) {
-        // console.log("Hit successful:", response.data);
         if (response.data.gameState) {
           setGameState(response.data.gameState);
           setLastActionRound(response.data.gameState.currentRound);
@@ -310,7 +274,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
       console.error("Hit request failed:", error);
       if (error.response && error.response.status === 401) {
         console.error("Authentication error - you may need to log in again");
-        // Optionally, redirect to login or show a message
       }
     }
 
@@ -328,7 +291,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
       );
 
       if (response.data.success) {
-        // console.log("Check game state response:", response.data);
       }
     } catch (error) {
       console.error("Error checking game state:", error);
@@ -337,7 +299,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
 
   useEffect(() => {
     socketRef.current.on("game state updated", (updatedGameState) => {
-      // console.log("Received updated game state:", updatedGameState);
       setGameState(updatedGameState);
     });
 
@@ -348,15 +309,12 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
 
   // Add this new useEffect for polling
   useEffect(() => {
-    // console.log("Current gameState:", gameState);
     if (!gameState?.gameId) return;
 
     const pollInterval = setInterval(async () => {
       try {
         // Log the full URL being called
         const url = `/api/game/check-round-status/${gameState.gameId}`;
-        // console.log("Polling URL:", url);
-        // console.log("Full gameState:", gameState);
 
         const token = localStorage.getItem("token");
 
@@ -367,9 +325,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
         });
 
         if (response.data.success && response.data.roundComplete) {
-          // console.log(
-          //   "Round completed, state will update automatically via socket"
-          // );
         }
       } catch (error) {
         console.error("Error polling round status:", error);
@@ -406,7 +361,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
         );
 
         if (response.data.success) {
-          // console.log("Game state poll response:", response.data);
         }
       } catch (error) {
         console.error("Error polling game state:", error);
@@ -415,7 +369,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
 
     // Socket listener for game state updates
     socketRef.current.on("game state updated", (updatedGameState) => {
-      // console.log("Received updated game state:", updatedGameState);
       setGameState(updatedGameState);
     });
 
@@ -429,11 +382,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
   // Add another useEffect to log when gameState changes
   useEffect(() => {
     if (gameState) {
-      // console.log("Game state updated:", {
-      //   currentRound: gameState.currentRound,
-      //   players: gameState.players,
-      //   currentTurn: gameState.currentTurn,
-      // });
     }
   }, [gameState]);
 
@@ -501,7 +449,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
   useEffect(() => {
     if (!socket) return;
 
-    // console.log("Setting up game ended listener");
     socket.on("game ended", async (data) => {
       console.log("Game ended event received:", data);
 
@@ -588,12 +535,6 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
         <div className="absolute inset-8 sm:inset-12 md:inset-16 bg-green-700/80 rounded-[100%] border-4 sm:border-6 md:border-8 border-gray-800">
           {/* Center pot and round area */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
-            {/* Pot bubble
-            <div className="bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
-              <span className="text-white text-sm sm:text-base md:text-lg font-bold whitespace-nowrap">
-                Pot: ${gameState?.potAmount || 0}
-              </span>
-            </div> */}
 
             {/* Round bubble */}
             <div className="bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">

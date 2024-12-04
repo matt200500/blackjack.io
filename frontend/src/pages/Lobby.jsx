@@ -83,7 +83,6 @@ const Lobby = ({ user, updateUserStats }) => {
     });
 
     socketRef.current.on("game started", () => {
-      // console.log("Game started event received");
       setGameStarted(true);
     });
 
@@ -160,8 +159,6 @@ const Lobby = ({ user, updateUserStats }) => {
       setTimeout(() => setGameError(""), 3000);
     }
   };
-
-  // console.log("Players:", players);
 
   const canStartGame = players.length >= 2 && players.length <= 6;
 
