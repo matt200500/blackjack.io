@@ -387,6 +387,9 @@ router.get("/check-round-status/:gameId", protect, async (req, res) => {
           const winningPlayers = playerResults.filter(
             (p) => p.total === maxWinTotal
           );
+          const losingPlayers = playerResults.filter(
+            (p) => p.total !== maxWinTotal
+          );
 
           try {
             // Start transaction for updating wins and resetting game state
@@ -399,6 +402,15 @@ router.get("/check-round-status/:gameId", protect, async (req, res) => {
                  SET wins = wins + 1 
                  WHERE user_id = ?`,
                 [winner.userId]
+              );
+            }
+
+            for (const loser of losingPlayers) {
+              await connection.execute(
+                `UPDATE users 
+                 SET losses = losses + 1 
+                 WHERE user_id = ?`,
+                [loser.userId]
               );
             }
 
@@ -486,6 +498,7 @@ router.get("/check-round-status/:gameId", protect, async (req, res) => {
             console.log("Emitting game ended event to lobby:", lobbyId);
             io.to(lobbyId.toString()).emit("game ended", {
               winners: winningPlayers,
+              losers: losingPlayers,
               updatedPlayers,
               newGameState: formattedNewGameState,
             });
