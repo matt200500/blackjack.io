@@ -149,56 +149,7 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
       setGameEnded(false); // Reset game ended state
       setWinners([]); // Clear previous winners
     });
-
-    socketRef.current.on("game state updated", (updatedGameState) => {
-      // console.log("Received updated game state:", updatedGameState);
-      setGameState(updatedGameState);
-    });
-
-    // Update the game ended handler
-    socketRef.current.on("game ended", (data) => {
-      console.log("Game ended event received:", data);
-      setGameEnded(true);
-      setWinners(data.winningPlayers);
-      setPlayerStats((prevStats) => {
-        const newStats = { ...prevStats };
-        data.updatedPlayers.forEach((player) => {
-          newStats[player.user_id] = {
-            wins: player.wins,
-            username: player.username,
-          };
-        });
-        return newStats;
-      });
-
-      // Set timeout to reset the game state with new cards
-      setTimeout(() => {
-        setGameEnded(false);
-        setWinners([]);
-        if (data.newGameState) {
-          setGameState((prevState) => ({
-            ...prevState,
-            currentRound: 1,
-            currentTurn: 0,
-            players: data.newGameState.players.map((player) => ({
-              ...player,
-              cards: player.cards,
-              stepped_back: false,
-              done_turn: false,
-              is_active: true,
-            })),
-          }));
-        }
-      }, 3000); // Show winner overlay for 3 seconds
-    });
-
-    return () => {
-      // console.log("Cleaning up socket connection");
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-    };
-  }, [lobby.id, user]); // Add user to dependencies
+  }, []);
 
   // Add another useEffect to log when gameState changes
   useEffect(() => {
@@ -553,7 +504,35 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
     // console.log("Setting up game ended listener");
     socket.on("game ended", async (data) => {
       console.log("Game ended event received:", data);
-      // ... rest of your game ended handling code
+
+      // Immediately set the game end states
+      setGameEnded(true);
+      console.log("setting winners");
+      setWinners(data.winners || []);
+      console.log("setting player stats");
+      setPlayerStats((prevStats) => {
+        const newStats = { ...prevStats };
+        data.updatedPlayers?.forEach((player) => {
+          newStats[player.user_id] = {
+            wins: player.wins,
+            username: player.username,
+          };
+        });
+        return newStats;
+      });
+
+      // Store the new game state in a variable
+      const newGameState = data.newGameState;
+      console.log("setting new game state");
+      // Use Promise-based timeout for better control
+      new Promise((resolve) => setTimeout(resolve, 3000)).then(() => {
+        // Only reset states after the delay
+        setGameEnded(false);
+        setWinners([]);
+        if (newGameState) {
+          setGameState(newGameState);
+        }
+      });
     });
 
     return () => {
@@ -561,7 +540,7 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
     };
   }, [socket, user.user_id, updateUserStats]);
 
-  // Add this new component for the winner overlay
+  // 1. Move WinnerOverlay outside of the useEffect
   const WinnerOverlay = ({ winners, playerStats }) => {
     return (
       <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
@@ -598,8 +577,8 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
 
   return (
     <div className="flex justify-center">
-      {/* Add the winner overlay */}
-      {gameEnded && (
+      {/* {console.log("game ended", gameEnded, "winners", winners)} */}
+      {gameEnded && winners.length > 0 && (
         <WinnerOverlay winners={winners} playerStats={playerStats} />
       )}
 
