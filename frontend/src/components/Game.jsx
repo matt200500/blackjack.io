@@ -6,6 +6,34 @@ import VisibleCard from "./VisibleCard";
 import ChatBox from "./ChatBox";
 import axios from "axios";
 
+// use ai to generate function for calculating card total
+const calculateCardTotal = (cards) => {
+  if (!cards || !Array.isArray(cards)) return 0;
+  
+  let total = 0;
+  let aces = 0;
+
+  for (const card of cards) {
+    if (card === 'A') {
+      aces++;
+    } else if (['K', 'Q', 'J'].includes(card)) {
+      total += 10;
+    } else {
+      total += parseInt(card);
+    }
+  }
+
+  for (let i = 0; i < aces; i++) {
+    if (total + 11 <= 21) {
+      total += 11;
+    } else {
+      total += 1;
+    }
+  }
+
+  return total;
+};
+
 const ChatToggleButton = ({ onClick, isOpen }) => (
   <button
     onClick={onClick}
@@ -59,6 +87,9 @@ const Game = ({ players, lobby, user }) => {
   const [playersActed, setPlayersActed] = useState(new Set());
   const socketRef = useRef();
   const [lastActionRound, setLastActionRound] = useState(null);
+  const [gameEnded, setGameEnded] = useState(false);
+  const [winners, setWinners] = useState([]);
+  const [playerStats, setPlayerStats] = useState({});
 
   // Add prop validation
   useEffect(() => {
@@ -123,16 +154,52 @@ const Game = ({ players, lobby, user }) => {
     });
 
     socketRef.current.on("game started", (data) => {
-      console.log("Game started event received for player:", {
-        username: user.username,
-        data,
-      });
+      console.log("Game started event received:", data);
       setGameState(data);
+      setGameEnded(false); // Reset game ended state
+      setWinners([]); // Clear previous winners
     });
 
     socketRef.current.on("game state updated", (updatedGameState) => {
       console.log("Received updated game state:", updatedGameState);
       setGameState(updatedGameState);
+    });
+
+    // Update the game ended handler
+    socketRef.current.on("game ended", (data) => {
+      console.log("Game ended event received:", data);
+      setGameEnded(true);
+      setWinners(data.winningPlayers);
+      setPlayerStats(prevStats => {
+        const newStats = { ...prevStats };
+        data.updatedPlayers.forEach(player => {
+          newStats[player.user_id] = {
+            wins: player.wins,
+            username: player.username
+          };
+        });
+        return newStats;
+      });
+
+      // Set timeout to reset the game state with new cards
+      setTimeout(() => {
+        setGameEnded(false);
+        setWinners([]);
+        if (data.newGameState) {
+          setGameState(prevState => ({
+            ...prevState,
+            currentRound: 1,
+            currentTurn: 0,
+            players: data.newGameState.players.map(player => ({
+              ...player,
+              cards: player.cards,
+              stepped_back: false,
+              done_turn: false,
+              is_active: true
+            }))
+          }));
+        }
+      }, 3000); // Show winner overlay for 3 seconds
     });
 
     return () => {
@@ -248,6 +315,23 @@ const Game = ({ players, lobby, user }) => {
         }
       }
     }
+
+    try {
+      // Check for game state updates
+      const token = localStorage.getItem('token');
+
+      const response = await api.get(`/api/game/check-round-status/${gameState.gameId}`, {
+        headers: {
+          Authorization: `Bearer ${token}` // Include the token in the headers
+        }
+      });
+      
+      if (response.data.success) {
+        console.log('Check game state response:', response.data);
+      }
+    } catch (error) {
+      console.error('Error checking game state:', error);
+    }
   };
 
   const handleHit = async () => {
@@ -290,6 +374,23 @@ const Game = ({ players, lobby, user }) => {
         console.error("Authentication error - you may need to log in again");
         // Optionally, redirect to login or show a message
       }
+    }
+
+    try {
+      // Check for game state updates
+      const token = localStorage.getItem('token');
+
+      const response = await api.get(`/api/game/check-round-status/${gameState.gameId}`, {
+        headers: {
+          Authorization: `Bearer ${token}` // Include the token in the headers
+        }
+      });
+      
+      if (response.data.success) {
+        console.log('Check game state response:', response.data);
+      }
+    } catch (error) {
+      console.error('Error checking game state:', error);
     }
   };
 
@@ -391,7 +492,16 @@ const Game = ({ players, lobby, user }) => {
   }, [gameState]);
 
   const areButtonsDisabled = () => {
-    return lastActionRound === gameState?.currentRound;
+    // Get current player's data
+    const currentPlayer = gameState?.players?.find(p => p.id === user.id);
+    
+    // Disable if:
+    // 1. No game state
+    // 2. Not player's turn
+    // 3. Player has stepped back
+    return !gameState || 
+           gameState.currentTurn !== currentPlayer?.seatPosition ||
+           currentPlayer?.stepped_back;
   };
 
   // Add this useEffect for continuous polling
@@ -401,7 +511,7 @@ const Game = ({ players, lobby, user }) => {
     const pollInterval = setInterval(async () => {
       try {
         const token = localStorage.getItem('token');
-        
+
         const response = await api.get(`/api/lobbies/${lobby.id}/game-state`, {
           headers: {
             Authorization: `Bearer ${token}` // Include the token in the headers
@@ -439,20 +549,102 @@ const Game = ({ players, lobby, user }) => {
     return () => clearInterval(pollInterval);
   }, [lobby?.id]);
 
+  // Add this useEffect to handle game end
+  useEffect(() => {
+    socketRef.current.on('game ended', (data) => {
+      console.log('Game ended event received:', {
+        winners: data.winners,
+        playerStats: data.updatedPlayers,
+        gameState: data.newGameState
+      });
+      
+      // Set winners and game ended state
+      setGameEnded(true);
+      setWinners(data.winners);
+      
+      // Update player stats
+      const newPlayerStats = {};
+      data.updatedPlayers.forEach(player => {
+        newPlayerStats[player.user_id] = {
+          wins: player.wins,
+          losses: player.losses,
+          games_played: player.games_played,
+          username: player.username
+        };
+      });
+      setPlayerStats(newPlayerStats);
+
+      // Reset game state after delay
+      setTimeout(() => {
+        setGameEnded(false);
+        setWinners([]);
+        if (data.newGameState) {
+          setGameState(data.newGameState);
+        }
+      }, 5000); // Increased to 5 seconds for better visibility
+    });
+
+    return () => {
+      socketRef.current.off('game ended');
+    };
+  }, []);
+
+  // Add this new component for the winner overlay
+  const WinnerOverlay = ({ winners, playerStats }) => {
+    return (
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4 border border-gray-700">
+          <h2 className="text-2xl font-bold text-white mb-4 text-center">
+            Winner{winners.length > 1 ? 's' : ''}!
+          </h2>
+          <div className="space-y-4">
+            {winners.map((winner, index) => (
+              <div 
+                key={index}
+                className="bg-gray-700/50 rounded-lg p-4 flex items-center justify-between"
+              >
+                <div>
+                  <span className="text-white font-medium">
+                    {playerStats[winner.userId]?.username || 'Player'}
+                  </span>
+                  <p className="text-gray-400 text-sm">
+                    Total: {winner.total}
+                  </p>
+                  <p className="text-green-400 text-sm">
+                    Wins: {playerStats[winner.userId]?.wins || 0}
+                  </p>
+                </div>
+                <div className="text-yellow-400 text-4xl">
+                  👑
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-gray-400 text-sm text-center mt-4">
+            New game starting...
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex justify-center">
+      {/* Add the winner overlay */}
+      {gameEnded && <WinnerOverlay winners={winners} playerStats={playerStats} />}
+
       {/* Game table - Only show in landscape or on larger screens */}
       <div className="hidden md:block landscape:block relative w-full aspect-[16/9] max-w-7xl bg-green-800/90 rounded-xl border-4 border-gray-800 overflow-hidden">
         {/* Blackjack Table */}
         <div className="absolute inset-8 sm:inset-12 md:inset-16 bg-green-700/80 rounded-[100%] border-4 sm:border-6 md:border-8 border-gray-800">
           {/* Center pot and round area */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
-            {/* Pot bubble */}
+            {/* Pot bubble
             <div className="bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
               <span className="text-white text-sm sm:text-base md:text-lg font-bold whitespace-nowrap">
                 Pot: ${gameState?.potAmount || 0}
               </span>
-            </div>
+            </div> */}
             
             {/* Round bubble */}
             <div className="bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
@@ -479,9 +671,12 @@ const Game = ({ players, lobby, user }) => {
             (p) => p.seatPosition === index
           );
 
+          const cardTotal = playerData?.cards ? calculateCardTotal(playerData.cards) : 0;
+          const wins = playerStats[playerData?.id]?.wins || 0;
+
           return (
             <div
-              key={index}
+              key={index} 
               className={`absolute ${
                 positions[index]
               } w-24 sm:w-32 md:w-40 h-14 sm:h-16 md:h-20 
@@ -525,6 +720,15 @@ const Game = ({ players, lobby, user }) => {
                     <span className="text-white font-medium text-sm truncate max-w-[90%]">
                       {player.username}
                     </span>
+                    {cardTotal > 0 && (
+                      <span className={`text-xs font-medium ${
+                        cardTotal > 21 ? 'text-red-400' : 
+                        cardTotal === 21 ? 'text-green-400' : 
+                        'text-gray-400'
+                      }`}>
+                        Total: {cardTotal}
+                      </span>
+                    )}
                     {playersActed.has(player.user_id) && (
                       <span className="text-xs text-green-400 font-medium">
                         Done Turn
@@ -532,7 +736,7 @@ const Game = ({ players, lobby, user }) => {
                     )}
                   </div>
                   <span className="text-gray-400 text-xs">
-                    ${playerData?.money}
+                   Wins: {wins}
                   </span>
                 </div>
               )}

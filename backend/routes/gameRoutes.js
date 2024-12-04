@@ -3,6 +3,34 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const { pool } = require('../utils/db');
 
+const calculateCardTotal = (cards) => {
+  if (!cards || !Array.isArray(cards)) return 0;
+  
+  let total = 0;
+  let aces = 0;
+
+  for (const card of cards) {
+    if (card === 'A') {
+      aces++;
+    } else if (['K', 'Q', 'J'].includes(card)) {
+      total += 10;
+    } else {
+      total += parseInt(card);
+    }
+  }
+
+  for (let i = 0; i < aces; i++) {
+    if (total + 11 <= 21) {
+      total += 11;
+    } else {
+      total += 1;
+    }
+  }
+
+  return total;
+};
+
+
 router.post('/skip', protect, async (req, res) => {
   const { gameId, userId, lobbyId, seatPosition } = req.body;
   const io = req.app.get('io');
@@ -252,6 +280,12 @@ function generateCard() {
   return cards[randomIndex];
 }
 
+const generateInitialCards = () => {
+  const card1 = generateCard();
+  const card2 = generateCard();
+  return `${card1},${card2}`;
+};
+
 // Add this new endpoint
 router.get('/check-round-status/:gameId', protect, async (req, res) => {
   console.log('Route hit: check-round-status with gameId:', req.params.gameId);
@@ -295,66 +329,134 @@ router.get('/check-round-status/:gameId', protect, async (req, res) => {
       console.log('All players done:', allPlayersDone);
 
       if (allPlayersDone) {
-        // Get current round
-        const [currentGameState] = await connection.execute(
-          `SELECT current_round FROM game_state WHERE game_id = ?`,
+        const [gamePlayers] = await connection.execute(
+          `SELECT gp.user_id, gp.cards, gp.stepped_back, gp.done_turn, gp.is_active
+           FROM game_players gp
+           WHERE gp.game_id = ? AND gp.is_active = TRUE`,
           [gameId]
         );
+  
+        // Check if all active players are either stepped back or have 21+
+        const allPlayersCompleted = gamePlayers.every(player => {
+          const cardTotal = calculateCardTotal(player.cards?.split(',') || []);
+          return player.stepped_back || cardTotal >= 21;
+        });
 
-        console.log('Current game state:', currentGameState[0]);
-        const newRound = (currentGameState[0].current_round || 0) + 1;
-        console.log('Updating to new round:', newRound);
+        if(allPlayersCompleted){
+          const playerResults = gamePlayers.map(player => ({
+            userId: player.user_id,
+            total: calculateCardTotal(player.cards?.split(',') || []),
+            cards: player.cards
+          }));
+  
+          // Find highest non-busted total (21 or less)
+          const validTotals = playerResults.filter(p => p.total <= 21);
+          const maxWinTotal = validTotals.length > 0 ? Math.max(...validTotals.map(p => p.total)) : 0;
+          const winningPlayers = playerResults.filter(p => p.total === maxWinTotal);
+          
+          try {
+            // Start transaction for updating wins and resetting game state
+            await connection.beginTransaction();
+      
+            // Increment wins for winning players
+            for (const winner of winningPlayers) {
+              await connection.execute(
+                `UPDATE users 
+                 SET wins = wins + 1 
+                 WHERE user_id = ?`,
+                [winner.userId]
+              );
+            }
+      
+            // Get all active players
+            const [activePlayers] = await connection.execute(
+              `SELECT user_id FROM game_players 
+               WHERE game_id = ? AND is_active = TRUE`,
+              [gameId]
+            );
 
-        // Update round and reset done_turn for all players
-        await connection.beginTransaction();
+            // Reset game state with new cards for each player
+            for (const player of activePlayers) {
+              const card1 = generateCard();
+              const card2 = generateCard();
+              const newCards = `${card1},${card2}`;
+      
+              await connection.execute(
+                `UPDATE game_players 
+                 SET cards = ?,
+                     stepped_back = FALSE,
+                     done_turn = FALSE
+                 WHERE game_id = ? AND user_id = ?`,
+                [newCards, gameId, player.user_id]
+              );
+            }
 
-        // Update the round first
-        await connection.execute(
-          `UPDATE game_state 
-           SET current_round = ?
-           WHERE game_id = ?`,
-          [newRound, gameId]
-        );
+            // Reset game state table
+            await connection.execute(
+              `UPDATE game_state 
+               SET current_player_turn = 0,
+                   current_round = 1
+               WHERE game_id = ?`,
+              [gameId]
+            );
 
-        // Then reset player states in a separate transaction
-        await connection.execute(
-          `UPDATE game_players 
-           SET done_turn = FALSE,
-               stepped_back = FALSE
-           WHERE game_id = ?`,
-          [gameId]
-        );
+            // Get updated player information including wins
+            const [updatedPlayers] = await connection.execute(
+              `SELECT u.user_id, u.username, u.wins 
+               FROM users u 
+               JOIN game_players gp ON u.user_id = gp.user_id 
+               WHERE gp.game_id = ?`,
+              [gameId]
+            );
 
-        await connection.commit();
+            await connection.commit();
 
-        // Get updated game state for response
-        const [updatedGameState] = await connection.execute(
-          `SELECT gs.*, gp.user_id, gp.seat_position, gp.cards, 
-                  gp.money, gp.is_active, gp.stepped_back, gp.done_turn
-           FROM game_state gs
-           LEFT JOIN game_players gp ON gs.game_id = gp.game_id
-           WHERE gs.game_id = ?`,
-          [gameId]
-        );
+            // Get the new game state for broadcasting
+            const [newGameState] = await connection.execute(
+              `SELECT gs.*, gp.user_id, gp.seat_position, gp.cards, 
+                      gp.money, gp.is_active, gp.stepped_back, gp.done_turn
+               FROM game_state gs
+               LEFT JOIN game_players gp ON gs.game_id = gp.game_id
+               WHERE gs.game_id = ?`,
+              [gameId]
+            );
 
-        // Format and emit updated state
-        const formattedGameState = {
-          gameId,
-          currentRound: newRound,
-          currentTurn: updatedGameState[0].current_player_turn,
-          potAmount: updatedGameState[0].pot_amount,
-          players: updatedGameState.map(player => ({
-            id: player.user_id,
-            seatPosition: player.seat_position,
-            cards: player.cards ? player.cards.split(',') : [],
-            money: player.money,
-            is_active: player.is_active,
-            stepped_back: player.stepped_back,
-            done_turn: player.done_turn
-          }))
-        };
+            // Format the new game state
+            const formattedNewGameState = {
+              gameId,
+              currentRound: 1,
+              currentTurn: 0,
+              players: newGameState.map(player => ({
+                id: player.user_id,
+                seatPosition: player.seat_position,
+                cards: player.cards ? player.cards.split(',') : [],
+                money: player.money,
+                is_active: player.is_active,
+                stepped_back: player.stepped_back,
+                done_turn: player.done_turn
+              }))
+            };
 
-        io.to(gameId.toString()).emit('game state updated', formattedGameState);
+            // Emit game ended event with winners and updated player information
+            io.to(gameId.toString()).emit('game ended', {
+              winners: winningPlayers,
+              updatedPlayers,
+              newGameState: formattedNewGameState
+            });
+
+            return res.json({
+              success: true,
+              gameEnded: true,
+              roundComplete: true,
+              winners: winningPlayers,
+              allPlayerResults: playerResults,
+              updatedPlayers
+            });
+          } catch (error) {
+            await connection.rollback();
+            throw error;
+          }
+        }
       }
 
       res.json({
