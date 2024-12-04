@@ -52,8 +52,6 @@ router.post("/skip", protect, async (req, res) => {
     await connection.beginTransaction();
 
     try {
-      // console.log("Executing update with:", { gameId, userId });
-
       // Update player's status
       await connection.execute(
         `UPDATE game_players 
@@ -73,8 +71,6 @@ router.post("/skip", protect, async (req, res) => {
          WHERE gs.game_id = ?`,
         [gameId]
       );
-
-      // console.log("Fetched game state:", gameState[0]);
 
       // Get all players to determine next turn
       const [players] = await connection.execute(
@@ -131,8 +127,6 @@ router.post("/skip", protect, async (req, res) => {
           done_turn: player.done_turn,
         })),
       };
-
-      // console.log("Formatted game state:", formattedGameState);
 
       await connection.commit();
 
@@ -213,8 +207,6 @@ router.post("/hit", protect, async (req, res) => {
         [gameId]
       );
 
-      // console.log("Fetched game state:", gameState[0]);
-
       // Get all players
       const [players] = await connection.execute(
         `SELECT user_id, seat_position, stepped_back, done_turn, cards, money, is_active
@@ -260,8 +252,6 @@ router.post("/hit", protect, async (req, res) => {
           done_turn: player.done_turn,
         })),
       };
-
-      // console.log("Formatted game state:", formattedGameState);
 
       await connection.commit();
 
@@ -317,7 +307,6 @@ const generateInitialCards = () => {
 
 // Add this new endpoint
 router.get("/check-round-status/:gameId", protect, async (req, res) => {
-  // console.log("Route hit: check-round-status with gameId:", req.params.gameId);
   const { gameId } = req.params;
   const io = req.app.get("io");
 
@@ -332,7 +321,6 @@ router.get("/check-round-status/:gameId", protect, async (req, res) => {
          WHERE game_id = ?`,
         [gameId]
       );
-      // console.log("Current player states:", playerStates);
 
       // Now check the counts
       const [players] = await connection.execute(
@@ -347,15 +335,7 @@ router.get("/check-round-status/:gameId", protect, async (req, res) => {
       const totalPlayers = Number(players[0].total_players);
       const donePlayers = Number(players[0].done_players);
       const activePlayers = Number(players[0].active_players);
-
-      // console.log("Player turn status:", {
-      //   totalPlayers,
-      //   donePlayers,
-      //   activePlayers,
-      // });
-
       const allPlayersDone = totalPlayers === donePlayers;
-      // console.log("All players done:", allPlayersDone);
 
       if (allPlayersDone) {
         const [gamePlayers] = await connection.execute(

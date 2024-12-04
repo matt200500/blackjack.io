@@ -298,10 +298,6 @@ const getLobby = async (req, res) => {
       })),
     };
 
-    // Debug logs
-    // console.log("Raw lobby data:", lobby);
-    // console.log("Formatted lobby data:", formattedLobby);
-
     res.json(formattedLobby);
   } catch (error) {
     console.error("Error in getLobby:", error);
@@ -513,12 +509,6 @@ const updateLobbySettings = async (req, res) => {
   const userId = req.user.user_id;
   const io = req.app.get("io");
 
-  // console.log("LOBBY UPDATE - Received request:", {
-  //   lobbyId,
-  //   starting_bank,
-  //   body: req.body,
-  // });
-
   try {
     const connection = await pool.getConnection();
     await connection.beginTransaction();
@@ -537,7 +527,6 @@ const updateLobbySettings = async (req, res) => {
       }
 
       const lobby = lobbies[0];
-      // console.log("LOBBY UPDATE - Current state:", lobby);
 
       // Check if user is host
       if (lobby.lobby_owner !== userId) {
@@ -556,8 +545,6 @@ const updateLobbySettings = async (req, res) => {
           ? parseInt(starting_bank)
           : lobby.starting_bank;
       const updatedExpertiseLevel = expertiseLevel || lobby.expertise_level;
-
-      // console.log("LOBBY UPDATE - New values:", updatedStartingBank);
 
       let updatedPassword = lobby.lobby_password;
 
@@ -587,8 +574,6 @@ const updateLobbySettings = async (req, res) => {
         ]
       );
 
-      // console.log("LOBBY UPDATE - Update result:", updateResult);
-
       // Get updated lobby info
       const [updatedLobbies] = await connection.execute(
         `SELECT l.*, u.username as host_username
@@ -597,11 +582,6 @@ const updateLobbySettings = async (req, res) => {
          WHERE l.lobby_id = ?`,
         [lobbyId]
       );
-
-      // console.log(
-      //   "LOBBY UPDATE - Database values after update:",
-      //   updatedLobbies[0]
-      // );
 
       await connection.commit();
       connection.release();
@@ -615,8 +595,6 @@ const updateLobbySettings = async (req, res) => {
         starting_bank: updatedLobbies[0].starting_bank,
         buy_in: updatedLobbies[0].buy_in,
       };
-
-      // console.log("LOBBY UPDATE - Final response:", updatedLobby);
 
       // Notify all clients in the lobby about the changes
       io.to(lobbyId).emit("lobby settings updated", updatedLobby);
@@ -656,14 +634,6 @@ const startGame = async (req, res) => {
     const startingBank = lobby[0].starting_bank || 1000;
     const buyIn = lobby[0].buy_in || 100;
     const potAmount = buyIn * players.length; // Calculate total pot
-
-    // console.log("DEBUG - Game Start Values:", {
-    //   players,
-    //   startingBank,
-    //   buyIn,
-    //   potAmount,
-    //   rawLobbyData: lobby[0]
-    // });
 
     // Deal initial cards to each player
     const playerCards = {};
@@ -734,8 +704,6 @@ const startGame = async (req, res) => {
         done_turn: false,
       })),
     };
-
-    // console.log("DEBUG - Final game state being sent:", gameStateForClients);
 
     io.to(lobbyId.toString()).emit("game started", gameStateForClients);
     res.status(200).json({ success: true, gameState: gameStateForClients });
