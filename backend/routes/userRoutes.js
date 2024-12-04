@@ -28,4 +28,25 @@ router.put("/update-profile-picture", protect, updateProfilePicture);
 // Update profile
 router.put("/update-profile", protect, updateProfile);
 
+router.get("/stats/:userId", protect, async (req, res) => {
+  try {
+    const [users] = await pool.execute(
+      "SELECT user_id, wins, losses, games_played FROM users WHERE user_id = ?",
+      [req.params.userId]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      wins: users[0].wins,
+      losses: users[0].losses,
+      gamesPlayed: users[0].games_played,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch user stats" });
+  }
+});
+
 module.exports = router;

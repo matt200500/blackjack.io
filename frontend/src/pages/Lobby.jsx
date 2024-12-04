@@ -7,7 +7,7 @@ import io from "socket.io-client";
 import LobbySettings from "../components/LobbySettings";
 import Game from "../components/Game";
 
-const Lobby = ({ user }) => {
+const Lobby = ({ user, updateUserStats }) => {
   const { id } = useParams();
   const [lobby, setLobby] = useState(null);
   const [players, setPlayers] = useState([]);
@@ -83,7 +83,7 @@ const Lobby = ({ user }) => {
     });
 
     socketRef.current.on("game started", () => {
-      console.log("Game started event received");
+      // console.log("Game started event received");
       setGameStarted(true);
     });
 
@@ -161,7 +161,7 @@ const Lobby = ({ user }) => {
     }
   };
 
-  console.log("Players:", players);
+  // console.log("Players:", players);
 
   const canStartGame = players.length >= 2 && players.length <= 6;
 
@@ -184,14 +184,6 @@ const Lobby = ({ user }) => {
           <div>
             <h1 className="text-4xl font-bold text-gray-100 mb-2">
               {lobby.name}
-            </h1>
-            <h1 className="text-xl font-bold text-gray-100 mb-2">
-              Starting Bank:&nbsp;
-              <span className="text-gray-400">{lobby.starting_bank}</span>
-            </h1>
-            <h1 className="text-xl font-bold text-gray-100 mb-2">
-              Buy In:&nbsp;
-              <span className="text-gray-400">{lobby.buy_in}</span>
             </h1>
             <div className="flex items-center">
               <span className="text-gray-400">Expertise Level:</span>
@@ -225,7 +217,13 @@ const Lobby = ({ user }) => {
           )}
 
           {gameStarted ? (
-            <Game players={players} lobby={lobby} user={user} />
+            <Game
+              players={players}
+              lobby={lobby}
+              user={user}
+              updateUserStats={updateUserStats}
+              socket={socketRef.current}
+            />
           ) : (
             <>
               <div className="flex justify-center">

@@ -299,8 +299,8 @@ const getLobby = async (req, res) => {
     };
 
     // Debug logs
-    console.log("Raw lobby data:", lobby);
-    console.log("Formatted lobby data:", formattedLobby);
+    // console.log("Raw lobby data:", lobby);
+    // console.log("Formatted lobby data:", formattedLobby);
 
     res.json(formattedLobby);
   } catch (error) {
@@ -355,7 +355,9 @@ const leaveLobby = async (req, res) => {
       ]);
 
       // Delete the lobby
-      await connection.query("DELETE FROM lobbies WHERE lobby_id = ?", [lobbyId]);
+      await connection.query("DELETE FROM lobbies WHERE lobby_id = ?", [
+        lobbyId,
+      ]);
 
       // Notify all players in the lobby
       io.to(lobbyId).emit("host left lobby", { lobbyId });
@@ -506,15 +508,16 @@ const removePlayer = async (req, res) => {
 
 const updateLobbySettings = async (req, res) => {
   const { id: lobbyId } = req.params;
-  const { name, password, locked, starting_bank, expertiseLevel, buy_in } = req.body;
+  const { name, password, locked, starting_bank, expertiseLevel, buy_in } =
+    req.body;
   const userId = req.user.user_id;
   const io = req.app.get("io");
 
-  console.log("LOBBY UPDATE - Received request:", {
-    lobbyId,
-    starting_bank,
-    body: req.body,
-  });
+  // console.log("LOBBY UPDATE - Received request:", {
+  //   lobbyId,
+  //   starting_bank,
+  //   body: req.body,
+  // });
 
   try {
     const connection = await pool.getConnection();
@@ -534,7 +537,7 @@ const updateLobbySettings = async (req, res) => {
       }
 
       const lobby = lobbies[0];
-      console.log("LOBBY UPDATE - Current state:", lobby);
+      // console.log("LOBBY UPDATE - Current state:", lobby);
 
       // Check if user is host
       if (lobby.lobby_owner !== userId) {
@@ -554,7 +557,7 @@ const updateLobbySettings = async (req, res) => {
           : lobby.starting_bank;
       const updatedExpertiseLevel = expertiseLevel || lobby.expertise_level;
 
-      console.log("LOBBY UPDATE - New values:", updatedStartingBank);
+      // console.log("LOBBY UPDATE - New values:", updatedStartingBank);
 
       let updatedPassword = lobby.lobby_password;
 
@@ -584,7 +587,7 @@ const updateLobbySettings = async (req, res) => {
         ]
       );
 
-      console.log("LOBBY UPDATE - Update result:", updateResult);
+      // console.log("LOBBY UPDATE - Update result:", updateResult);
 
       // Get updated lobby info
       const [updatedLobbies] = await connection.execute(
@@ -595,10 +598,10 @@ const updateLobbySettings = async (req, res) => {
         [lobbyId]
       );
 
-      console.log(
-        "LOBBY UPDATE - Database values after update:",
-        updatedLobbies[0]
-      );
+      // console.log(
+      //   "LOBBY UPDATE - Database values after update:",
+      //   updatedLobbies[0]
+      // );
 
       await connection.commit();
       connection.release();
@@ -613,7 +616,7 @@ const updateLobbySettings = async (req, res) => {
         buy_in: updatedLobbies[0].buy_in,
       };
 
-      console.log("LOBBY UPDATE - Final response:", updatedLobby);
+      // console.log("LOBBY UPDATE - Final response:", updatedLobby);
 
       // Notify all clients in the lobby about the changes
       io.to(lobbyId).emit("lobby settings updated", updatedLobby);
@@ -654,13 +657,13 @@ const startGame = async (req, res) => {
     const buyIn = lobby[0].buy_in || 100;
     const potAmount = buyIn * players.length; // Calculate total pot
 
-    console.log("DEBUG - Game Start Values:", {
-      players,
-      startingBank,
-      buyIn,
-      potAmount,
-      rawLobbyData: lobby[0]
-    });
+    // console.log("DEBUG - Game Start Values:", {
+    //   players,
+    //   startingBank,
+    //   buyIn,
+    //   potAmount,
+    //   rawLobbyData: lobby[0]
+    // });
 
     // Deal initial cards to each player
     const playerCards = {};
@@ -704,7 +707,7 @@ const startGame = async (req, res) => {
           startingBank - buyIn, // Subtract buy-in from starting bank
           true,
           false,
-          false
+          false,
         ]
       );
     }
@@ -728,11 +731,11 @@ const startGame = async (req, res) => {
         money: startingBank - buyIn,
         is_active: true,
         stepped_back: false,
-        done_turn: false
+        done_turn: false,
       })),
     };
 
-    console.log("DEBUG - Final game state being sent:", gameStateForClients);
+    // console.log("DEBUG - Final game state being sent:", gameStateForClients);
 
     io.to(lobbyId.toString()).emit("game started", gameStateForClients);
     res.status(200).json({ success: true, gameState: gameStateForClients });

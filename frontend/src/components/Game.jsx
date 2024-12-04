@@ -9,14 +9,14 @@ import axios from "axios";
 // use ai to generate function for calculating card total
 const calculateCardTotal = (cards) => {
   if (!cards || !Array.isArray(cards)) return 0;
-  
+
   let total = 0;
   let aces = 0;
 
   for (const card of cards) {
-    if (card === 'A') {
+    if (card === "A") {
       aces++;
-    } else if (['K', 'Q', 'J'].includes(card)) {
+    } else if (["K", "Q", "J"].includes(card)) {
       total += 10;
     } else {
       total += parseInt(card);
@@ -66,20 +66,20 @@ const ChatToggleButton = ({ onClick, isOpen }) => (
 );
 
 const api = axios.create({
-  baseURL: 'http://localhost:3001',
+  baseURL: "http://localhost:3001",
   headers: {
-    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-    'Content-Type': 'application/json'
-  }
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+    "Content-Type": "application/json",
+  },
 });
 
 // Add this to test the API configuration
-console.log('API Configuration:', {
-  baseURL: api.defaults.baseURL,
-  headers: api.defaults.headers
-});
+// console.log("API Configuration:", {
+//   baseURL: api.defaults.baseURL,
+//   headers: api.defaults.headers,
+// });
 
-const Game = ({ players, lobby, user }) => {
+const Game = ({ players, lobby, user, updateUserStats, socket }) => {
   const [seats, setSeats] = useState(Array(6).fill(null));
   const [error, setError] = useState("");
   const [gameState, setGameState] = useState(null);
@@ -104,7 +104,7 @@ const Game = ({ players, lobby, user }) => {
   useEffect(() => {
     const fetchGameState = async () => {
       try {
-        console.log("Fetching game state for lobby:", lobby.id);
+        // console.log("Fetching game state for lobby:", lobby.id);
         const response = await fetch(
           `http://localhost:3001/api/lobbies/${lobby.id}/game-state`,
           {
@@ -114,7 +114,7 @@ const Game = ({ players, lobby, user }) => {
           }
         );
         const data = await response.json();
-        console.log("Fetched game state:", data);
+        // console.log("Fetched game state:", data);
         if (data.gameState) {
           setGameState(data.gameState);
         }
@@ -126,42 +126,32 @@ const Game = ({ players, lobby, user }) => {
     fetchGameState();
   }, [lobby.id]);
 
-  // Add a useEffect to log gameState changes
-  useEffect(() => {
-    if (gameState) {
-      console.log('Game state updated:', {
-        currentRound: gameState.currentRound,
-        fullState: gameState
-      });
-    }
-  }, [gameState]);
-
   // Socket connection
   useEffect(() => {
     if (!user) return; // Add safety check
 
-    console.log("Initializing socket connection for lobby:", {
-      lobbyId: lobby.id,
-      userId: user.user_id,
-      username: user.username,
-    });
+    // console.log("Initializing socket connection for lobby:", {
+    //   lobbyId: lobby.id,
+    //   userId: user.user_id,
+    //   username: user.username,
+    // });
 
     socketRef.current = io("http://localhost:3001");
     socketRef.current.emit("join lobby", lobby.id);
 
     socketRef.current.on("connect", () => {
-      console.log("Socket connected with ID:", socketRef.current.id);
+      // console.log("Socket connected with ID:", socketRef.current.id);
     });
 
     socketRef.current.on("game started", (data) => {
-      console.log("Game started event received:", data);
+      // console.log("Game started event received:", data);
       setGameState(data);
       setGameEnded(false); // Reset game ended state
       setWinners([]); // Clear previous winners
     });
 
     socketRef.current.on("game state updated", (updatedGameState) => {
-      console.log("Received updated game state:", updatedGameState);
+      // console.log("Received updated game state:", updatedGameState);
       setGameState(updatedGameState);
     });
 
@@ -170,12 +160,12 @@ const Game = ({ players, lobby, user }) => {
       console.log("Game ended event received:", data);
       setGameEnded(true);
       setWinners(data.winningPlayers);
-      setPlayerStats(prevStats => {
+      setPlayerStats((prevStats) => {
         const newStats = { ...prevStats };
-        data.updatedPlayers.forEach(player => {
+        data.updatedPlayers.forEach((player) => {
           newStats[player.user_id] = {
             wins: player.wins,
-            username: player.username
+            username: player.username,
           };
         });
         return newStats;
@@ -186,24 +176,24 @@ const Game = ({ players, lobby, user }) => {
         setGameEnded(false);
         setWinners([]);
         if (data.newGameState) {
-          setGameState(prevState => ({
+          setGameState((prevState) => ({
             ...prevState,
             currentRound: 1,
             currentTurn: 0,
-            players: data.newGameState.players.map(player => ({
+            players: data.newGameState.players.map((player) => ({
               ...player,
               cards: player.cards,
               stepped_back: false,
               done_turn: false,
-              is_active: true
-            }))
+              is_active: true,
+            })),
           }));
         }
       }, 3000); // Show winner overlay for 3 seconds
     });
 
     return () => {
-      console.log("Cleaning up socket connection");
+      // console.log("Cleaning up socket connection");
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
@@ -213,24 +203,18 @@ const Game = ({ players, lobby, user }) => {
   // Add another useEffect to log when gameState changes
   useEffect(() => {
     if (gameState) {
-      console.log("Game state updated:", {
-        gameState,
-        players: gameState.players,
-        seats
-      });
-      
       // Add detailed player logging
-      console.log("Detailed player information:");
+      // console.log("Detailed player information:");
       gameState.players?.forEach((player, index) => {
-        console.log(`Player ${index + 1}:`, {
-          seatPosition: player.seatPosition,
-          cards: player.cards,
-          money: player.money,
-          is_active: player.is_active,
-          stepped_back: player.stepped_back,
-          done_turn: player.done_turn,
-          allProperties: player // This will show all available properties
-        });
+        // console.log(`Player ${index + 1}:`, {
+        //   seatPosition: player.seatPosition,
+        //   cards: player.cards,
+        //   money: player.money,
+        //   is_active: player.is_active,
+        //   stepped_back: player.stepped_back,
+        //   done_turn: player.done_turn,
+        //   allProperties: player, // This will show all available properties
+        // });
       });
     }
   }, [gameState, seats]);
@@ -251,13 +235,13 @@ const Game = ({ players, lobby, user }) => {
 
   // Debug render
   if (gameState) {
-    console.log("Rendering with game state:", gameState);
+    // console.log("Rendering with game state:", gameState);
     seats.forEach((player, index) => {
-      console.log(`Seat ${index}:`, {
-        player: player?.username || "empty",
-        hasButton: index === gameState.buttonPosition,
-        isCurrentTurn: index === gameState.currentTurn,
-      });
+      // console.log(`Seat ${index}:`, {
+      //   player: player?.username || "empty",
+      //   hasButton: index === gameState.buttonPosition,
+      //   isCurrentTurn: index === gameState.currentTurn,
+      // });
     });
   }
 
@@ -271,12 +255,12 @@ const Game = ({ players, lobby, user }) => {
 
   const handleSkip = async () => {
     try {
-      const currentPlayer = gameState.players?.find(p => p.id === user.id);
-      
+      const currentPlayer = gameState.players?.find((p) => p.id === user.id);
+
       // Get the token
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       if (!token) {
-        console.error('No authentication token found');
+        console.error("No authentication token found");
         return;
       }
 
@@ -284,20 +268,20 @@ const Game = ({ players, lobby, user }) => {
         gameId: lobby.id,
         userId: Number(user.id),
         lobbyId: Number(lobby.id),
-        seatPosition: Number(currentPlayer.seatPosition)
+        seatPosition: Number(currentPlayer.seatPosition),
       };
-      
-      console.log('Sending skip request with data:', requestData);
+
+      // console.log("Sending skip request with data:", requestData);
 
       // Include the token in the headers
-      const response = await api.post('/api/game/skip', requestData, {
+      const response = await api.post("/api/game/skip", requestData, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
-      
+
       if (response.data.success) {
-        console.log("Skip successful:", response.data);
+        // console.log("Skip successful:", response.data);
         if (response.data.gameState) {
           setGameState(response.data.gameState);
           setLastActionRound(response.data.gameState.currentRound);
@@ -318,28 +302,31 @@ const Game = ({ players, lobby, user }) => {
 
     try {
       // Check for game state updates
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
 
-      const response = await api.get(`/api/game/check-round-status/${gameState.gameId}`, {
-        headers: {
-          Authorization: `Bearer ${token}` // Include the token in the headers
+      const response = await api.get(
+        `/api/game/check-round-status/${gameState.gameId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Include the token in the headers
+          },
         }
-      });
-      
+      );
+
       if (response.data.success) {
-        console.log('Check game state response:', response.data);
+        // console.log("Check game state response:", response.data);
       }
     } catch (error) {
-      console.error('Error checking game state:', error);
+      console.error("Error checking game state:", error);
     }
   };
 
   const handleHit = async () => {
     try {
-      const currentPlayer = gameState.players?.find(p => p.id === user.id);
-      
+      const currentPlayer = gameState.players?.find((p) => p.id === user.id);
+
       if (!currentPlayer) {
-        console.error('Current player not found in game state');
+        console.error("Current player not found in game state");
         return;
       }
 
@@ -347,22 +334,22 @@ const Game = ({ players, lobby, user }) => {
         gameId: lobby.id,
         userId: Number(user.id),
         lobbyId: Number(lobby.id),
-        seatPosition: Number(currentPlayer.seatPosition)
+        seatPosition: Number(currentPlayer.seatPosition),
       };
-      
-      console.log('Sending hit request with data:', requestData);
+
+      // console.log("Sending hit request with data:", requestData);
 
       // Assuming you have a function to get the auth token
-      const token = localStorage.getItem('token'); // or however you store it
+      const token = localStorage.getItem("token"); // or however you store it
 
-      const response = await api.post('/api/game/hit', requestData, {
+      const response = await api.post("/api/game/hit", requestData, {
         headers: {
-          Authorization: `Bearer ${token}` // Include the token in the headers
-        }
+          Authorization: `Bearer ${token}`, // Include the token in the headers
+        },
       });
-      
+
       if (response.data.success) {
-        console.log("Hit successful:", response.data);
+        // console.log("Hit successful:", response.data);
         if (response.data.gameState) {
           setGameState(response.data.gameState);
           setLastActionRound(response.data.gameState.currentRound);
@@ -378,63 +365,68 @@ const Game = ({ players, lobby, user }) => {
 
     try {
       // Check for game state updates
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
 
-      const response = await api.get(`/api/game/check-round-status/${gameState.gameId}`, {
-        headers: {
-          Authorization: `Bearer ${token}` // Include the token in the headers
+      const response = await api.get(
+        `/api/game/check-round-status/${gameState.gameId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Include the token in the headers
+          },
         }
-      });
-      
+      );
+
       if (response.data.success) {
-        console.log('Check game state response:', response.data);
+        // console.log("Check game state response:", response.data);
       }
     } catch (error) {
-      console.error('Error checking game state:', error);
+      console.error("Error checking game state:", error);
     }
   };
 
   useEffect(() => {
-    socketRef.current.on('game state updated', (updatedGameState) => {
-      console.log('Received updated game state:', updatedGameState);
+    socketRef.current.on("game state updated", (updatedGameState) => {
+      // console.log("Received updated game state:", updatedGameState);
       setGameState(updatedGameState);
     });
 
     return () => {
-      socketRef.current.off('game state updated');
+      socketRef.current.off("game state updated");
     };
   }, []);
 
   // Add this new useEffect for polling
   useEffect(() => {
-    console.log('Current gameState:', gameState);
+    // console.log("Current gameState:", gameState);
     if (!gameState?.gameId) return;
 
     const pollInterval = setInterval(async () => {
       try {
         // Log the full URL being called
         const url = `/api/game/check-round-status/${gameState.gameId}`;
-        console.log('Polling URL:', url);
-        console.log('Full gameState:', gameState);
-        
-        const token = localStorage.getItem('token');
+        // console.log("Polling URL:", url);
+        // console.log("Full gameState:", gameState);
+
+        const token = localStorage.getItem("token");
 
         const response = await api.get(url, {
           headers: {
-            Authorization: `Bearer ${token}` // Include the token in the headers
-          }
+            Authorization: `Bearer ${token}`, // Include the token in the headers
+          },
         });
-        
+
         if (response.data.success && response.data.roundComplete) {
-          console.log('Round completed, state will update automatically via socket');
+          // console.log(
+          //   "Round completed, state will update automatically via socket"
+          // );
         }
       } catch (error) {
-        console.error('Error polling round status:', error);
+        console.error("Error polling round status:", error);
         if (error.response) {
-          console.error('Error details:', {
+          console.error("Error details:", {
             status: error.response.status,
             data: error.response.data,
-            headers: error.response.headers
+            headers: error.response.headers,
           });
         }
       }
@@ -451,57 +443,62 @@ const Game = ({ players, lobby, user }) => {
     const updateInterval = setInterval(async () => {
       try {
         // Poll for game state updates
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem("token");
 
-        const response = await api.get(`/api/game/check-round-status/${gameState.gameId}`, {
-          headers: {
-            Authorization: `Bearer ${token}` // Include the token in the headers
+        const response = await api.get(
+          `/api/game/check-round-status/${gameState.gameId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`, // Include the token in the headers
+            },
           }
-        });
-        
+        );
+
         if (response.data.success) {
-          console.log('Game state poll response:', response.data);
+          // console.log("Game state poll response:", response.data);
         }
       } catch (error) {
-        console.error('Error polling game state:', error);
+        console.error("Error polling game state:", error);
       }
     }, 1000); // Poll every second
 
     // Socket listener for game state updates
-    socketRef.current.on('game state updated', (updatedGameState) => {
-      console.log('Received updated game state:', updatedGameState);
+    socketRef.current.on("game state updated", (updatedGameState) => {
+      // console.log("Received updated game state:", updatedGameState);
       setGameState(updatedGameState);
     });
 
     // Cleanup function
     return () => {
       clearInterval(updateInterval);
-      socketRef.current.off('game state updated');
+      socketRef.current.off("game state updated");
     };
   }, [gameState?.gameId]);
 
   // Add another useEffect to log when gameState changes
   useEffect(() => {
     if (gameState) {
-      console.log("Game state updated:", {
-        currentRound: gameState.currentRound,
-        players: gameState.players,
-        currentTurn: gameState.currentTurn
-      });
+      // console.log("Game state updated:", {
+      //   currentRound: gameState.currentRound,
+      //   players: gameState.players,
+      //   currentTurn: gameState.currentTurn,
+      // });
     }
   }, [gameState]);
 
   const areButtonsDisabled = () => {
     // Get current player's data
-    const currentPlayer = gameState?.players?.find(p => p.id === user.id);
-    
+    const currentPlayer = gameState?.players?.find((p) => p.id === user.id);
+
     // Disable if:
     // 1. No game state
     // 2. Not player's turn
     // 3. Player has stepped back
-    return !gameState || 
-           gameState.currentTurn !== currentPlayer?.seatPosition ||
-           currentPlayer?.stepped_back;
+    return (
+      !gameState ||
+      gameState.currentTurn !== currentPlayer?.seatPosition ||
+      currentPlayer?.stepped_back
+    );
   };
 
   // Add this useEffect for continuous polling
@@ -510,27 +507,27 @@ const Game = ({ players, lobby, user }) => {
 
     const pollInterval = setInterval(async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem("token");
 
         const response = await api.get(`/api/lobbies/${lobby.id}/game-state`, {
           headers: {
-            Authorization: `Bearer ${token}` // Include the token in the headers
-          }
+            Authorization: `Bearer ${token}`, // Include the token in the headers
+          },
         });
-        
+
         if (response.data.gameState) {
           // Preserve the current round or increment it if certain conditions are met
-          setGameState(prevState => {
+          setGameState((prevState) => {
             const newState = {
               ...prevState,
               ...response.data.gameState,
               currentRound: prevState?.currentRound || 1, // Preserve existing round or default to 1
-              gameId: lobby.id // Ensure we have the gameId
+              gameId: lobby.id, // Ensure we have the gameId
             };
 
             // If all players have acted (you'll need to define this logic)
             const allPlayersActed = response.data.gameState.players.every(
-              player => player.done_turn || !player.is_active
+              (player) => player.done_turn || !player.is_active
             );
 
             // If all players have acted, increment the round
@@ -542,7 +539,7 @@ const Game = ({ players, lobby, user }) => {
           });
         }
       } catch (error) {
-        console.error('Error polling game state:', error);
+        console.error("Error polling game state:", error);
       }
     }, 1000);
 
@@ -551,43 +548,18 @@ const Game = ({ players, lobby, user }) => {
 
   // Add this useEffect to handle game end
   useEffect(() => {
-    socketRef.current.on('game ended', (data) => {
-      console.log('Game ended event received:', {
-        winners: data.winners,
-        playerStats: data.updatedPlayers,
-        gameState: data.newGameState
-      });
-      
-      // Set winners and game ended state
-      setGameEnded(true);
-      setWinners(data.winners);
-      
-      // Update player stats
-      const newPlayerStats = {};
-      data.updatedPlayers.forEach(player => {
-        newPlayerStats[player.user_id] = {
-          wins: player.wins,
-          losses: player.losses,
-          games_played: player.games_played,
-          username: player.username
-        };
-      });
-      setPlayerStats(newPlayerStats);
+    if (!socket) return;
 
-      // Reset game state after delay
-      setTimeout(() => {
-        setGameEnded(false);
-        setWinners([]);
-        if (data.newGameState) {
-          setGameState(data.newGameState);
-        }
-      }, 5000); // Increased to 5 seconds for better visibility
+    // console.log("Setting up game ended listener");
+    socket.on("game ended", async (data) => {
+      console.log("Game ended event received:", data);
+      // ... rest of your game ended handling code
     });
 
     return () => {
-      socketRef.current.off('game ended');
+      socket.off("game ended");
     };
-  }, []);
+  }, [socket, user.user_id, updateUserStats]);
 
   // Add this new component for the winner overlay
   const WinnerOverlay = ({ winners, playerStats }) => {
@@ -595,28 +567,24 @@ const Game = ({ players, lobby, user }) => {
       <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
         <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4 border border-gray-700">
           <h2 className="text-2xl font-bold text-white mb-4 text-center">
-            Winner{winners.length > 1 ? 's' : ''}!
+            Winner{winners.length > 1 ? "s" : ""}!
           </h2>
           <div className="space-y-4">
             {winners.map((winner, index) => (
-              <div 
+              <div
                 key={index}
                 className="bg-gray-700/50 rounded-lg p-4 flex items-center justify-between"
               >
                 <div>
                   <span className="text-white font-medium">
-                    {playerStats[winner.userId]?.username || 'Player'}
+                    {playerStats[winner.userId]?.username || "Player"}
                   </span>
-                  <p className="text-gray-400 text-sm">
-                    Total: {winner.total}
-                  </p>
+                  <p className="text-gray-400 text-sm">Total: {winner.total}</p>
                   <p className="text-green-400 text-sm">
                     Wins: {playerStats[winner.userId]?.wins || 0}
                   </p>
                 </div>
-                <div className="text-yellow-400 text-4xl">
-                  👑
-                </div>
+                <div className="text-yellow-400 text-4xl">👑</div>
               </div>
             ))}
           </div>
@@ -631,7 +599,9 @@ const Game = ({ players, lobby, user }) => {
   return (
     <div className="flex justify-center">
       {/* Add the winner overlay */}
-      {gameEnded && <WinnerOverlay winners={winners} playerStats={playerStats} />}
+      {gameEnded && (
+        <WinnerOverlay winners={winners} playerStats={playerStats} />
+      )}
 
       {/* Game table - Only show in landscape or on larger screens */}
       <div className="hidden md:block landscape:block relative w-full aspect-[16/9] max-w-7xl bg-green-800/90 rounded-xl border-4 border-gray-800 overflow-hidden">
@@ -645,7 +615,7 @@ const Game = ({ players, lobby, user }) => {
                 Pot: ${gameState?.potAmount || 0}
               </span>
             </div> */}
-            
+
             {/* Round bubble */}
             <div className="bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
               <span className="text-white text-sm sm:text-base md:text-lg font-bold whitespace-nowrap">
@@ -671,12 +641,14 @@ const Game = ({ players, lobby, user }) => {
             (p) => p.seatPosition === index
           );
 
-          const cardTotal = playerData?.cards ? calculateCardTotal(playerData.cards) : 0;
+          const cardTotal = playerData?.cards
+            ? calculateCardTotal(playerData.cards)
+            : 0;
           const wins = playerStats[playerData?.id]?.wins || 0;
 
           return (
             <div
-              key={index} 
+              key={index}
               className={`absolute ${
                 positions[index]
               } w-24 sm:w-32 md:w-40 h-14 sm:h-16 md:h-20 
@@ -721,11 +693,15 @@ const Game = ({ players, lobby, user }) => {
                       {player.username}
                     </span>
                     {cardTotal > 0 && (
-                      <span className={`text-xs font-medium ${
-                        cardTotal > 21 ? 'text-red-400' : 
-                        cardTotal === 21 ? 'text-green-400' : 
-                        'text-gray-400'
-                      }`}>
+                      <span
+                        className={`text-xs font-medium ${
+                          cardTotal > 21
+                            ? "text-red-400"
+                            : cardTotal === 21
+                            ? "text-green-400"
+                            : "text-gray-400"
+                        }`}
+                      >
                         Total: {cardTotal}
                       </span>
                     )}
@@ -735,9 +711,7 @@ const Game = ({ players, lobby, user }) => {
                       </span>
                     )}
                   </div>
-                  <span className="text-gray-400 text-xs">
-                   Wins: {wins}
-                  </span>
+                  <span className="text-gray-400 text-xs">Wins: {wins}</span>
                 </div>
               )}
             </div>
@@ -776,7 +750,11 @@ const Game = ({ players, lobby, user }) => {
       <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 flex gap-4 z-50">
         <button
           className={`bg-green-600 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105
-            ${areButtonsDisabled() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700'}`}
+            ${
+              areButtonsDisabled()
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:bg-green-700"
+            }`}
           onClick={handleHit}
           disabled={areButtonsDisabled()}
         >
@@ -784,7 +762,11 @@ const Game = ({ players, lobby, user }) => {
         </button>
         <button
           className={`bg-red-600 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105
-            ${areButtonsDisabled() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-700'}`}
+            ${
+              areButtonsDisabled()
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:bg-red-700"
+            }`}
           onClick={handleSkip}
           disabled={areButtonsDisabled()}
         >
@@ -820,6 +802,8 @@ Game.propTypes = {
   players: PropTypes.array.isRequired,
   lobby: PropTypes.object.isRequired,
   user: PropTypes.object.isRequired,
+  updateUserStats: PropTypes.func.isRequired,
+  socket: PropTypes.object.isRequired,
 };
 
 export default Game;

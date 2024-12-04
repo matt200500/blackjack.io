@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -16,6 +16,18 @@ import ErrorMessage from "./components/ErrorMessage";
 const App = () => {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")));
   const [error, setError] = useState("");
+
+  const updateUserStats = useCallback((updatedStats) => {
+    console.log("Updated stats:", updatedStats);
+    setUser((prevUser) => {
+      const newUser = {
+        ...prevUser,
+        ...updatedStats,
+      };
+      localStorage.setItem("user", JSON.stringify(newUser));
+      return newUser;
+    });
+  }, []);
 
   useEffect(() => {
     const handleTokenExpired = () => {
@@ -59,7 +71,13 @@ const App = () => {
             />
             <Route
               path="/lobby/:id"
-              element={user ? <Lobby user={user} /> : <Navigate to="/login" />}
+              element={
+                user ? (
+                  <Lobby user={user} updateUserStats={updateUserStats} />
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
             />
           </Routes>
         </div>

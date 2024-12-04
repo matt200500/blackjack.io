@@ -1,18 +1,18 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { protect } = require('../middleware/authMiddleware');
-const { pool } = require('../utils/db');
+const { protect } = require("../middleware/authMiddleware");
+const { pool } = require("../utils/db");
 
 const calculateCardTotal = (cards) => {
   if (!cards || !Array.isArray(cards)) return 0;
-  
+
   let total = 0;
   let aces = 0;
 
   for (const card of cards) {
-    if (card === 'A') {
+    if (card === "A") {
       aces++;
-    } else if (['K', 'Q', 'J'].includes(card)) {
+    } else if (["K", "Q", "J"].includes(card)) {
       total += 10;
     } else {
       total += parseInt(card);
@@ -30,16 +30,20 @@ const calculateCardTotal = (cards) => {
   return total;
 };
 
-
-router.post('/skip', protect, async (req, res) => {
+router.post("/skip", protect, async (req, res) => {
   const { gameId, userId, lobbyId, seatPosition } = req.body;
-  const io = req.app.get('io');
+  const io = req.app.get("io");
 
   if (!gameId || !userId || !lobbyId || seatPosition === undefined) {
-    console.log('Received invalid data:', { gameId, userId, lobbyId, seatPosition });
+    console.log("Received invalid data:", {
+      gameId,
+      userId,
+      lobbyId,
+      seatPosition,
+    });
     return res.status(400).json({
       success: false,
-      message: 'Missing required data'
+      message: "Missing required data",
     });
   }
 
@@ -48,8 +52,8 @@ router.post('/skip', protect, async (req, res) => {
     await connection.beginTransaction();
 
     try {
-      console.log('Executing update with:', { gameId, userId });
-      
+      // console.log("Executing update with:", { gameId, userId });
+
       // Update player's status
       await connection.execute(
         `UPDATE game_players 
@@ -70,7 +74,7 @@ router.post('/skip', protect, async (req, res) => {
         [gameId]
       );
 
-      console.log('Fetched game state:', gameState[0]);
+      // console.log("Fetched game state:", gameState[0]);
 
       // Get all players to determine next turn
       const [players] = await connection.execute(
@@ -83,10 +87,14 @@ router.post('/skip', protect, async (req, res) => {
 
       // Find next active player
       let nextTurn = gameState[0].current_player_turn;
-      const activePlayers = players.filter(p => !p.stepped_back);
+      const activePlayers = players.filter((p) => !p.stepped_back);
       if (activePlayers.length > 0) {
-        const currentPlayerIndex = activePlayers.findIndex(p => p.seat_position === nextTurn);
-        nextTurn = activePlayers[(currentPlayerIndex + 1) % activePlayers.length]?.seat_position ?? nextTurn;
+        const currentPlayerIndex = activePlayers.findIndex(
+          (p) => p.seat_position === nextTurn
+        );
+        nextTurn =
+          activePlayers[(currentPlayerIndex + 1) % activePlayers.length]
+            ?.seat_position ?? nextTurn;
       }
 
       // Update game state with next player's turn
@@ -113,54 +121,57 @@ router.post('/skip', protect, async (req, res) => {
         currentRound: gameState[0].current_round,
         currentTurn: nextTurn,
         potAmount: updatedGameState[0].pot_amount,
-        players: players.map(player => ({
+        players: players.map((player) => ({
           id: player.user_id,
           seatPosition: player.seat_position,
-          cards: player.cards ? player.cards.split(',') : [],
+          cards: player.cards ? player.cards.split(",") : [],
           money: player.money,
           is_active: player.is_active,
           stepped_back: player.stepped_back,
-          done_turn: player.done_turn
-        }))
+          done_turn: player.done_turn,
+        })),
       };
 
-      console.log('Formatted game state:', formattedGameState);
+      // console.log("Formatted game state:", formattedGameState);
 
       await connection.commit();
 
       // Emit updated game state to all players
-      io.to(lobbyId.toString()).emit('game state updated', formattedGameState);
+      io.to(lobbyId.toString()).emit("game state updated", formattedGameState);
 
       res.json({
         success: true,
-        gameState: formattedGameState
+        gameState: formattedGameState,
       });
-
     } catch (error) {
       await connection.rollback();
       throw error;
     } finally {
       connection.release();
     }
-
   } catch (error) {
-    console.error('Error handling skip:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to process skip action'
+    console.error("Error handling skip:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process skip action",
     });
   }
 });
 
-router.post('/hit', protect, async (req, res) => {
+router.post("/hit", protect, async (req, res) => {
   const { gameId, userId, lobbyId, seatPosition } = req.body;
-  const io = req.app.get('io');
+  const io = req.app.get("io");
 
   if (!gameId || !userId || !lobbyId || seatPosition === undefined) {
-    console.log('Missing required data:', { gameId, userId, lobbyId, seatPosition });
+    console.log("Missing required data:", {
+      gameId,
+      userId,
+      lobbyId,
+      seatPosition,
+    });
     return res.status(400).json({
       success: false,
-      message: 'Missing required data'
+      message: "Missing required data",
     });
   }
 
@@ -177,8 +188,10 @@ router.post('/hit', protect, async (req, res) => {
 
       // Generate a new card
       const newCard = generateCard(); // You'll need to implement this function
-      const currentCards = playerCards[0].cards ? playerCards[0].cards.split(',') : [];
-      const updatedCards = [...currentCards, newCard].join(',');
+      const currentCards = playerCards[0].cards
+        ? playerCards[0].cards.split(",")
+        : [];
+      const updatedCards = [...currentCards, newCard].join(",");
 
       // Update player's cards and set done_turn to true
       await connection.execute(
@@ -200,7 +213,7 @@ router.post('/hit', protect, async (req, res) => {
         [gameId]
       );
 
-      console.log('Fetched game state:', gameState[0]);
+      // console.log("Fetched game state:", gameState[0]);
 
       // Get all players
       const [players] = await connection.execute(
@@ -213,10 +226,14 @@ router.post('/hit', protect, async (req, res) => {
 
       // Find next active player
       let nextTurn = gameState[0].current_player_turn;
-      const activePlayers = players.filter(p => !p.stepped_back);
+      const activePlayers = players.filter((p) => !p.stepped_back);
       if (activePlayers.length > 0) {
-        const currentPlayerIndex = activePlayers.findIndex(p => p.seat_position === nextTurn);
-        nextTurn = activePlayers[(currentPlayerIndex + 1) % activePlayers.length]?.seat_position ?? nextTurn;
+        const currentPlayerIndex = activePlayers.findIndex(
+          (p) => p.seat_position === nextTurn
+        );
+        nextTurn =
+          activePlayers[(currentPlayerIndex + 1) % activePlayers.length]
+            ?.seat_position ?? nextTurn;
       }
 
       // Update game state with next player's turn
@@ -233,49 +250,61 @@ router.post('/hit', protect, async (req, res) => {
         currentRound: gameState[0].current_round,
         currentTurn: nextTurn,
         potAmount: gameState[0].pot_amount,
-        players: players.map(player => ({
+        players: players.map((player) => ({
           id: player.user_id,
           seatPosition: player.seat_position,
-          cards: player.cards ? player.cards.split(',') : [],
+          cards: player.cards ? player.cards.split(",") : [],
           money: player.money,
           is_active: player.is_active,
           stepped_back: player.stepped_back,
-          done_turn: player.done_turn
-        }))
+          done_turn: player.done_turn,
+        })),
       };
 
-      console.log('Formatted game state:', formattedGameState);
+      // console.log("Formatted game state:", formattedGameState);
 
       await connection.commit();
 
       // Emit updated game state to all players
-      io.to(lobbyId.toString()).emit('game state updated', formattedGameState);
+      io.to(lobbyId.toString()).emit("game state updated", formattedGameState);
 
       res.json({
         success: true,
-        gameState: formattedGameState
+        gameState: formattedGameState,
       });
-
     } catch (error) {
       await connection.rollback();
       throw error;
     } finally {
       connection.release();
     }
-
   } catch (error) {
-    console.error('Error handling hit:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to process hit action',
-      error: error.message
+    console.error("Error handling hit:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process hit action",
+      error: error.message,
     });
   }
 });
 
 // Helper function to generate a new card
 function generateCard() {
-  const cards = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+  const cards = [
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "J",
+    "Q",
+    "K",
+    "A",
+  ];
   const randomIndex = Math.floor(Math.random() * cards.length);
   return cards[randomIndex];
 }
@@ -287,14 +316,14 @@ const generateInitialCards = () => {
 };
 
 // Add this new endpoint
-router.get('/check-round-status/:gameId', protect, async (req, res) => {
-  console.log('Route hit: check-round-status with gameId:', req.params.gameId);
+router.get("/check-round-status/:gameId", protect, async (req, res) => {
+  // console.log("Route hit: check-round-status with gameId:", req.params.gameId);
   const { gameId } = req.params;
-  const io = req.app.get('io');
+  const io = req.app.get("io");
 
   try {
     const connection = await pool.getConnection();
-    
+
     try {
       // First, let's see the actual state of all players
       const [playerStates] = await connection.execute(
@@ -303,7 +332,7 @@ router.get('/check-round-status/:gameId', protect, async (req, res) => {
          WHERE game_id = ?`,
         [gameId]
       );
-      console.log('Current player states:', playerStates);
+      // console.log("Current player states:", playerStates);
 
       // Now check the counts
       const [players] = await connection.execute(
@@ -319,14 +348,14 @@ router.get('/check-round-status/:gameId', protect, async (req, res) => {
       const donePlayers = Number(players[0].done_players);
       const activePlayers = Number(players[0].active_players);
 
-      console.log('Player turn status:', {
-        totalPlayers,
-        donePlayers,
-        activePlayers
-      });
+      // console.log("Player turn status:", {
+      //   totalPlayers,
+      //   donePlayers,
+      //   activePlayers,
+      // });
 
       const allPlayersDone = totalPlayers === donePlayers;
-      console.log('All players done:', allPlayersDone);
+      // console.log("All players done:", allPlayersDone);
 
       if (allPlayersDone) {
         const [gamePlayers] = await connection.execute(
@@ -335,29 +364,34 @@ router.get('/check-round-status/:gameId', protect, async (req, res) => {
            WHERE gp.game_id = ? AND gp.is_active = TRUE`,
           [gameId]
         );
-  
+
         // Check if all active players are either stepped back or have 21+
-        const allPlayersCompleted = gamePlayers.every(player => {
-          const cardTotal = calculateCardTotal(player.cards?.split(',') || []);
+        const allPlayersCompleted = gamePlayers.every((player) => {
+          const cardTotal = calculateCardTotal(player.cards?.split(",") || []);
           return player.stepped_back || cardTotal >= 21;
         });
 
-        if(allPlayersCompleted){
-          const playerResults = gamePlayers.map(player => ({
+        if (allPlayersCompleted) {
+          const playerResults = gamePlayers.map((player) => ({
             userId: player.user_id,
-            total: calculateCardTotal(player.cards?.split(',') || []),
-            cards: player.cards
+            total: calculateCardTotal(player.cards?.split(",") || []),
+            cards: player.cards,
           }));
-  
+
           // Find highest non-busted total (21 or less)
-          const validTotals = playerResults.filter(p => p.total <= 21);
-          const maxWinTotal = validTotals.length > 0 ? Math.max(...validTotals.map(p => p.total)) : 0;
-          const winningPlayers = playerResults.filter(p => p.total === maxWinTotal);
-          
+          const validTotals = playerResults.filter((p) => p.total <= 21);
+          const maxWinTotal =
+            validTotals.length > 0
+              ? Math.max(...validTotals.map((p) => p.total))
+              : 0;
+          const winningPlayers = playerResults.filter(
+            (p) => p.total === maxWinTotal
+          );
+
           try {
             // Start transaction for updating wins and resetting game state
             await connection.beginTransaction();
-      
+
             // Increment wins for winning players
             for (const winner of winningPlayers) {
               await connection.execute(
@@ -367,7 +401,7 @@ router.get('/check-round-status/:gameId', protect, async (req, res) => {
                 [winner.userId]
               );
             }
-      
+
             // Get all active players
             const [activePlayers] = await connection.execute(
               `SELECT user_id FROM game_players 
@@ -380,7 +414,7 @@ router.get('/check-round-status/:gameId', protect, async (req, res) => {
               const card1 = generateCard();
               const card2 = generateCard();
               const newCards = `${card1},${card2}`;
-      
+
               await connection.execute(
                 `UPDATE game_players 
                  SET cards = ?,
@@ -426,22 +460,34 @@ router.get('/check-round-status/:gameId', protect, async (req, res) => {
               gameId,
               currentRound: 1,
               currentTurn: 0,
-              players: newGameState.map(player => ({
+              players: newGameState.map((player) => ({
                 id: player.user_id,
                 seatPosition: player.seat_position,
-                cards: player.cards ? player.cards.split(',') : [],
+                cards: player.cards ? player.cards.split(",") : [],
                 money: player.money,
                 is_active: player.is_active,
                 stepped_back: player.stepped_back,
-                done_turn: player.done_turn
-              }))
+                done_turn: player.done_turn,
+              })),
             };
 
+            // Get the lobbyId along with other game state info
+            const [gameInfo] = await connection.execute(
+              `SELECT gs.*, l.lobby_id as lobby_id
+               FROM game_state gs
+               JOIN lobbies l ON gs.lobby_id = l.lobby_id
+               WHERE gs.game_id = ?`,
+              [gameId]
+            );
+
+            const lobbyId = gameInfo[0].lobby_id;
+
             // Emit game ended event with winners and updated player information
-            io.to(gameId.toString()).emit('game ended', {
+            console.log("Emitting game ended event to lobby:", lobbyId);
+            io.to(lobbyId.toString()).emit("game ended", {
               winners: winningPlayers,
               updatedPlayers,
-              newGameState: formattedNewGameState
+              newGameState: formattedNewGameState,
             });
 
             return res.json({
@@ -450,9 +496,10 @@ router.get('/check-round-status/:gameId', protect, async (req, res) => {
               roundComplete: true,
               winners: winningPlayers,
               allPlayerResults: playerResults,
-              updatedPlayers
+              updatedPlayers,
             });
           } catch (error) {
+            console.log("AAAAAAAAAAAAAAAAAAAAAAAA", error);
             await connection.rollback();
             throw error;
           }
@@ -462,18 +509,16 @@ router.get('/check-round-status/:gameId', protect, async (req, res) => {
       res.json({
         success: true,
         allPlayersDone,
-        roundComplete: allPlayersDone
+        roundComplete: allPlayersDone,
       });
-
     } finally {
       connection.release();
     }
-
   } catch (error) {
-    console.error('Error checking round status:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to check round status'
+    console.error("Error checking round status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to check round status",
     });
   }
 });

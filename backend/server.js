@@ -49,10 +49,10 @@ app.use("/api/game", gameRoutes);
 
 // Add this after your routes to catch 404s
 app.use((req, res, next) => {
-  console.log('404 Not Found:', req.method, req.url);
-  res.status(404).json({ 
-    success: false, 
-    message: `Route not found: ${req.method} ${req.url}` 
+  console.log("404 Not Found:", req.method, req.url);
+  res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.method} ${req.url}`,
   });
 });
 
@@ -70,6 +70,14 @@ io.on("connection", (socket) => {
       `Current sockets in lobby ${lobbyId}:`,
       Array.from(sockets || [])
     );
+  });
+
+  socket.on("game ended", (data) => {
+    console.log(
+      "Game ended event received, broadcasting to lobby:",
+      data.lobbyId
+    );
+    io.to(data.lobbyId.toString()).emit("game ended", data);
   });
 
   socket.on("leave lobby", (lobbyId) => {
