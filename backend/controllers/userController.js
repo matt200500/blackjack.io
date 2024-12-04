@@ -2,6 +2,32 @@ const { pool, connectDB } = require("../utils/db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
+const loginAttempts = new Map(); // tracks login attempts
+const maxAttempts = 3; // max login attempts
+
+// handles login attempts and blocks login ability for account if max attempts reached
+const handleLoginAttempt = (email) => {
+  const attempts = loginAttempts.get(email) || {count: 0, lockUntil: null};
+  
+  // checks if account is still locked
+  if (attempts.lockUntil && attempts.lockUntil > Date.now()) {
+    const remainingTime = Math.ceil((attempts.lockUntil - Date.now()) / 1000);  // calculates seconds remaining
+    throw new Error(`Account is locked. Try again in ${remainingTime} seconds`);
+  }
+  attempts.count += 1; // otherwise increments login attempts
+  
+  // compares current attempts to max attempts
+  if (attempts.count >= maxAttempts) {
+    // lock account for 60 secs and reset attempts
+    attempts.lockUntil = Date.now() + (60 * 1000);
+    attempts.count = 0;
+    loginAttempts.set(email, attempts);
+    throw new Error('Login for this account is locked. Try again in 60 seconds');
+  }
+  loginAttempts.set(email, attempts);
+  return maxAttempts - attempts.count; // returns remaining attempts
+};
+
 const registerUser = async (req, res) => {
   const { username, email, password, role } = req.body;
 
@@ -97,20 +123,32 @@ const loginUser = async (req, res) => {
   }
 
   try {
-    const [users] = await pool.execute("SELECT * FROM users WHERE email = ?", [
-      email,
-    ]);
-
-    if (users.length === 0) {
-      return res.status(400).json({ message: "Invalid email or password" });
+    // check to see if account is locked and for how long
+    const existingAttempts = loginAttempts.get(email);
+    if (existingAttempts?.lockUntil && existingAttempts.lockUntil > Date.now()) {
+      const remainingTime = Math.ceil((existingAttempts.lockUntil - Date.now()) / 1000);
+      return res.status(429).json({message: `Login for this account is locked. Try again in ${remainingTime} seconds`});
     }
+    const [users] = await pool.execute("SELECT * FROM users WHERE email = ?", [email]);
 
+    // check if account exists in db
+    if (users.length === 0) {
+      const remainingAttempts = handleLoginAttempt(email);
+      return res.status(400).json({message: `Invalid email or password. ${remainingAttempts} attempts remaining.`});
+    }
     const user = users[0];
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
+    // check if password is valid and handle login attempts
     if (!isPasswordValid) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      try {
+        const remainingAttempts = handleLoginAttempt(email);
+        return res.status(400).json({message: `Incorrect password. ${remainingAttempts} attempts remaining.`}); // return 400 for wrong password
+      } catch (error) { 
+        return res.status(429).json({message: error.message});  // return 429 for too many wrong attempts
+      }
     }
+    loginAttempts.delete(email); // reset attempts after logging in
 
     const token = jwt.sign(
       { id: user.user_id, role: user.role },
