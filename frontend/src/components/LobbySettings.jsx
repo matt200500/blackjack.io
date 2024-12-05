@@ -16,15 +16,19 @@ const LobbySettings = ({ lobby, onUpdate }) => {
   const [password, setPassword] = useState("");
   const [locked, setLocked] = useState(lobby?.locked || false);
   const [error, setError] = useState("");
+  const [starting_bank, setStartingBank] = useState(lobby?.starting_bank || "");
   const [expertiseLevel, setExpertiseLevel] = useState(
     lobby?.expertiseLevel || ""
   );
+  const [buy_in, setBuyIn] = useState(lobby?.buy_in || "");
 
   useEffect(() => {
     console.log("Lobby prop:", lobby);
     setName(lobby?.name || "");
+    setStartingBank(lobby?.starting_bank || "");
     setExpertiseLevel(lobby?.expertiseLevel || "");
     setLocked(lobby?.locked || false);
+    setBuyIn(lobby?.buy_in || "");
   }, [lobby]);
 
   useEffect(() => {
@@ -37,6 +41,15 @@ const LobbySettings = ({ lobby, onUpdate }) => {
     }
   }, [isEditing]);
 
+  useEffect(() => {
+    const maxBuyIn = Math.floor(starting_bank * 0.25);
+    if (buy_in > maxBuyIn) {
+      setBuyIn(maxBuyIn);
+      setError(`Buy-in automatically adjusted to maximum allowed value (${maxBuyIn})`);
+      setTimeout(() => setError(""), 3000);
+    }
+  }, [starting_bank]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -45,8 +58,10 @@ const LobbySettings = ({ lobby, onUpdate }) => {
         {
           name,
           password: password || null,
+          starting_bank,
           expertiseLevel,
           locked,
+          buy_in,
         }
       );
       onUpdate(response.data);
