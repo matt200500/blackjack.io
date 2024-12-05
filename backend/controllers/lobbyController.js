@@ -365,30 +365,56 @@ const leaveLobby = async (req, res) => {
         [lobbyId]
       );
 
-      if (gameState.length > 0) {
+      if (gameState.length > 0) { // if there is an active game
         await connection.query(
-          "DELETE FROM game_players WHERE game_id = ? AND user_id = ?",
-          [gameState[0].game_id, userId]
+          "UPDATE lobbies SET current_game_id = NULL WHERE lobby_id = ?",
+          [lobbyId]
         );
+        // Delete game_players first (due to foreign key constraints)
+        await connection.query(
+          `DELETE gp FROM game_players gp 
+           INNER JOIN game_state gs ON gp.game_id = gs.game_id 
+           WHERE gs.lobby_id = ?`,
+          [lobbyId]
+        );
+
+        // Delete game_state
+        await connection.query("DELETE FROM game_state WHERE lobby_id = ?", [
+          lobbyId,
+        ]);
+
+        // Delete the lobby
+        await connection.query("DELETE FROM lobbies WHERE lobby_id = ?", [
+          lobbyId,
+        ]);
+  
+        // Get the username of the user leaving
+        const [user] = await connection.query(
+          "SELECT username FROM users WHERE user_id = ?",
+          [userId]
+        );
+
+        // Notify all players in the lobby with the username
+        io.to(lobbyId).emit("user left mid game", { lobbyId, username: user[0]?.username });
+      } else {
+        // Update the lobby's player list
+        const currentPlayers = lobby[0].user_ids.split(",");
+        const updatedPlayers = currentPlayers.filter(
+          (id) => id !== userId.toString()
+        );
+
+        await connection.query(
+          "UPDATE lobbies SET user_ids = ? WHERE lobby_id = ?",
+          [updatedPlayers.join(","), lobbyId]
+        );
+
+        // Notify remaining players
+        io.to(lobbyId).emit("player left", {
+          lobbyId,
+          userId,
+          players: updatedPlayers,
+        });
       }
-
-      // Update the lobby's player list
-      const currentPlayers = lobby[0].user_ids.split(",");
-      const updatedPlayers = currentPlayers.filter(
-        (id) => id !== userId.toString()
-      );
-
-      await connection.query(
-        "UPDATE lobbies SET user_ids = ? WHERE lobby_id = ?",
-        [updatedPlayers.join(","), lobbyId]
-      );
-
-      // Notify remaining players
-      io.to(lobbyId).emit("player left", {
-        lobbyId,
-        userId,
-        players: updatedPlayers,
-      });
     }
 
     await connection.commit();

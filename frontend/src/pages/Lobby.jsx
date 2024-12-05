@@ -53,6 +53,13 @@ const Lobby = ({ user, updateUserStats }) => {
       }
     });
 
+    socketRef.current.on("user left mid game", (data) => {
+      if (data.lobbyId === id) {
+        setError(`${data.username} left mid game!`);
+        setTimeout(() => navigate("/"), 3000);
+      }
+    });
+
     socketRef.current.on("player joined", (data) => {
       setPlayers(data.players);
     });
@@ -96,6 +103,7 @@ const Lobby = ({ user, updateUserStats }) => {
     return () => {
       socketRef.current.off("request players update");
       socketRef.current.off("host left lobby");
+      socketRef.current.off("user left mid game");
       socketRef.current.off("player joined");
       socketRef.current.off("player left");
       socketRef.current.off("removed from lobby");
