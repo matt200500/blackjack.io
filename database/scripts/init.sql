@@ -1,11 +1,3 @@
-DROP TABLE IF EXISTS lobby;
-DROP TABLE IF EXISTS game_rounds;
-DROP TABLE IF EXISTS game_players;
-DROP TABLE IF EXISTS game_actions;
-DROP TABLE IF EXISTS game_state;
-DROP TABLE IF EXISTS game;
-DROP TABLE IF EXISTS users;
-
 -- Create users table first
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,

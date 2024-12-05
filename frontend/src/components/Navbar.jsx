@@ -35,10 +35,7 @@ const Navbar = ({ user, handleLogout }) => {
                   className="w-7 h-7 rounded-full mr-2 border-2 border-gray-600"
                 />
                 <span className="text-gray-200 font-medium text-sm">
-                  {user.username}{" "}
-                  <span className="text-xs text-gray-400">
-                    ({user.wins}W - {user.losses}L)
-                  </span>
+                  {user.username}
                 </span>
               </li>
               <li>

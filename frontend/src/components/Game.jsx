@@ -454,9 +454,7 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
 
       // Immediately set the game end states
       setGameEnded(true);
-      console.log("setting winners");
       setWinners(data.winners || []);
-      console.log("setting player stats");
       setPlayerStats((prevStats) => {
         const newStats = { ...prevStats };
         data.updatedPlayers?.forEach((player) => {
@@ -464,6 +462,14 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
             wins: player.wins,
             username: player.username,
           };
+
+          // If this is the current user, update their stats in the navbar
+          if (player.user_id === user.user_id) {
+            updateUserStats({
+              wins: player.wins,
+              losses: player.losses,
+            });
+          }
         });
         return newStats;
       });

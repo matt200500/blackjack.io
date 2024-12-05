@@ -22,7 +22,8 @@ const App = () => {
     setUser((prevUser) => {
       const newUser = {
         ...prevUser,
-        ...updatedStats,
+        wins: updatedStats.wins || prevUser.wins,
+        losses: updatedStats.losses || prevUser.losses,
       };
       localStorage.setItem("user", JSON.stringify(newUser));
       return newUser;
