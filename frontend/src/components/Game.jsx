@@ -612,7 +612,7 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
                     <span className="text-white font-medium text-sm truncate max-w-[90%]">
                       {player.username}
                     </span>
-                    {cardTotal > 0 && (
+                    {playerData?.id === user?.id && cardTotal > 0 && (
                       <span
                         className={`text-xs font-medium ${
                           cardTotal > 21
