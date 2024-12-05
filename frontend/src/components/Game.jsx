@@ -532,18 +532,7 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
       {/* Game table - Only show in landscape or on larger screens */}
       <div className="hidden md:block landscape:block relative w-full aspect-[16/9] max-w-7xl bg-green-800/90 rounded-xl border-4 border-gray-800 overflow-hidden">
         {/* Blackjack Table */}
-        <div className="absolute inset-8 sm:inset-12 md:inset-16 bg-green-700/80 rounded-[100%] border-4 sm:border-6 md:border-8 border-gray-800">
-          {/* Center pot and round area */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
-
-            {/* Round bubble */}
-            <div className="bg-green-900/30 p-2 sm:p-3 md:p-4 rounded-full">
-              <span className="text-white text-sm sm:text-base md:text-lg font-bold whitespace-nowrap">
-                Round: {gameState?.currentRound || 1}
-              </span>
-            </div>
-          </div>
-        </div>
+        <div className="absolute inset-8 sm:inset-12 md:inset-16 bg-green-700/80 rounded-[100%] border-4 sm:border-6 md:border-8 border-gray-800"></div>
 
         {/* Seat positions */}
         {seats.map((player, index) => {
@@ -608,13 +597,14 @@ const Game = ({ players, lobby, user, updateUserStats, socket }) => {
                       {player.username.charAt(0).toUpperCase()}
                     </span>
                   </div>
+
                   <div className="flex items-center gap-2">
-                    <span className="text-white font-medium text-sm truncate max-w-[90%]">
+                    <span className="text-white font-medium text-sm max-w-[90%]">
                       {player.username}
                     </span>
                     {playerData?.id === user?.id && cardTotal > 0 && (
                       <span
-                        className={`text-xs font-medium ${
+                        className={`text-xs w-full font-medium ${
                           cardTotal > 21
                             ? "text-red-400"
                             : cardTotal === 21
