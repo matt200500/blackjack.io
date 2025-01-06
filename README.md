@@ -2,6 +2,8 @@
 Blackjack.io is a modern take on the classic card game, designed to bring players together in a seamless online experience. In an age where physical distance often separates us, Blackjack.io provides an engaging and accessible platform for friends and enthusiasts to enjoy a timeless game from anywhere. \
 With sleek design, intuitive gameplay, and multiplayer functionality, our product bridges traditional gaming with contemporary technology, creating a dynamic and inclusive gaming environment.
 
+https://github.com/user-attachments/assets/e3392817-9e0c-4ec4-b354-97f07423cdca
+
 ## User Guide
 Expected to be installed:
 ```
